@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon, LayoutDashboardIcon, TrophyIcon } from "lucide-react"
+import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon, LayoutDashboardIcon, TrophyIcon, MailCheckIcon } from "lucide-react"
 
 const data = {
   teams: [
@@ -51,15 +51,12 @@ const data = {
       ],
     },
     {
-      title: "Settings",
-      url: "#",
-      icon: <Settings2Icon />,
+      title: "Invitations",
+      url: "/dashboard/invitations",
+      icon: <MailCheckIcon />,
       items: [
-        { title: "General", url: "#" },
-        { title: "Team", url: "#" },
-        { title: "Billing", url: "#" },
-        { title: "Limits", url: "#" },
-      ],
+        { title: "Voir mes invitations", url: "/dashboard/invitations" },
+      ]
     },
   ],
   projects: [

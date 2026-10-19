@@ -1,12 +1,12 @@
 // components/teams/team-detail-view.tsx
 import Link from "next/link"
-import { TeamDetail } from "@/app/actions/team.actions"
+import { TeamDetail, removeMemberFromTeam, updateTeamMemberRole } from "@/app/actions/team.actions"
 import { AddMemberForm } from "./add-member-form"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Gamepad2, Monitor, Calendar, Users, Trophy } from "lucide-react"
+import { ArrowLeft, Gamepad2, Monitor, Calendar, Users, Trophy, Trash2 } from "lucide-react"
 
 interface TeamDetailViewProps {
   team: TeamDetail & { members?: Array<{ id: string; email: string; role: string }> }
@@ -77,17 +77,47 @@ export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
             <CardContent>
               {team.members && team.members.length > 0 ? (
                 <div className="space-y-3">
-                  {team.members.map((member) => (
-                    <div key={member.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div className="flex items-center gap-3">
-                        <Users className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{member.email}</span>
+                  {team.members.map((member) => {
+                    const removeAction = removeMemberFromTeam.bind(null, team.id, structureId, member.id)
+                    const updateRoleAction = updateTeamMemberRole.bind(null, team.id, structureId, member.id)
+
+                    return (
+                      <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-4">
+                        <div className="flex items-center gap-3 truncate">
+                          <Users className="h-4 w-4 text-muted-foreground shrink-0" />
+                          <span className="font-medium truncate">{member.email}</span>
+                          <Badge variant={member.role === 'CAPTAIN' ? 'default' : 'secondary'}>
+                            {member.role}
+                          </Badge>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Formulaire de modification rapide du rôle */}
+                          <form action={updateRoleAction} className="flex items-center gap-2">
+                            <select
+                              name="role"
+                              defaultValue={member.role}
+                              className="h-8 text-xs border rounded-md px-2 bg-background"
+                            >
+                              <option value="PLAYER">Joueur</option>
+                              <option value="CAPTAIN">Capitaine</option>
+                              <option value="MANAGER">Manager</option>
+                            </select>
+                            <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">
+                              Modifier
+                            </Button>
+                          </form>
+
+                          {/* Formulaire de suppression */}
+                          <form action={removeAction}>
+                            <Button type="submit" variant="ghost" size="icon" className="h-8 w-8 text-red-500 hover:text-red-600 hover:bg-red-50">
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </form>
+                        </div>
                       </div>
-                      <Badge variant={member.role === 'CAPTAIN' ? 'default' : 'secondary'}>
-                        {member.role}
-                      </Badge>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground py-6 text-center">

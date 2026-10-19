@@ -1,12 +1,12 @@
 import Link from "next/link"
-import { getStructures } from "@/app/actions/structure.actions"
+import { getMyStructures } from "@/app/actions/structure.actions"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Plus } from "lucide-react"
 import { StructureList } from "@/components/structure/structure-list"
 
 export default async function StructuresPage() {
-  const structures = await getStructures()
+  const structures = await getMyStructures()
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">

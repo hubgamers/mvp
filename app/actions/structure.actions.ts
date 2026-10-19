@@ -4,6 +4,10 @@
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
+import { getCurrentUserWithProfile } from "./auth.actions"
+import { Resend } from "resend"
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface Structure {
   id: string
@@ -52,11 +56,28 @@ export async function getStructures(): Promise<Structure[]> {
   return data as Structure[]
 }
 
-// Récupérer une structure par son ID
-export async function getStructureById(id: string) {
+export async function getMyStructures(): Promise<Structure[]> {
   const supabase = await createClient()
+  const user = await getCurrentUserWithProfile()
 
-  const { data: structure, error } = await supabase
+  if (!user.user?.id) return []
+
+  const userId = user.user.id
+
+  // 1. Récupérer les ID des structures où l'utilisateur est membre (dans `structures_users`)
+  const { data: memberRelations, error: memberError } = await supabase
+    .from("structures_users")
+    .select("structure_id")
+    .eq("user_id", userId)
+
+  if (memberError) {
+    console.error("Erreur récupération structures membres:", memberError.message)
+  }
+
+  const memberStructureIds = memberRelations?.map((rel) => rel.structure_id) || []
+
+  // 2. Récupérer toutes les structures créées par l'utilisateur OU dont il est membre
+  const { data, error } = await supabase
     .from("structures")
     .select(`
       *,
@@ -66,23 +87,59 @@ export async function getStructureById(id: string) {
         avatar_url
       )
     `)
+    .or(`created_by.eq.${userId}${memberStructureIds.length > 0 ? `,id.in.(${memberStructureIds.join(',')})` : ''}`)
+    .order("created_at", { ascending: false })
+
+  if (error) {
+    console.error("Erreur récupération structures:", error.message)
+    return []
+  }
+
+  return data as Structure[]
+}
+
+// Récupérer une structure par son ID
+export async function getStructureById(id: string) {
+  const supabase = await createClient()
+
+  // 1. Récupérer la structure, son créateur et ses membres
+  const { data: structure, error } = await supabase
+    .from("structures")
+    .select(`
+      *,
+      creator:users!structures_created_by_fkey (
+        id,
+        email,
+        avatar_url
+      ),
+      members:structures_users (
+        role,
+        user:users (
+          id,
+          email,
+          avatar_url,
+          created_at
+        )
+      )
+    `)
     .eq("id", id)
     .single()
 
   if (error || !structure) return null
 
-  // Récupérer les équipes de cette structure
+  // 2. Récupérer les équipes de cette structure
   const { data: teamsData } = await supabase
     .from("structures_teams")
     .select(`
-      role,
       team:teams (*)
     `)
     .eq("structure_id", id)
 
   return {
     ...structure,
-    teams: teamsData?.map((item: any) => ({ ...item.team, role: item.role })) || [],
+    teams: teamsData?.map((item: any) => item.team).filter(Boolean) || [],
+    // Optionnel : si tu preferes un tableau d'utilisateurs "aplatis" avec leur rôle directement :
+    // members: structure.members?.map((m: any) => ({ ...m.user, role: m.role })) || []
   }
 }
 
@@ -91,9 +148,7 @@ export async function createStructure(prevState: any, formData: FormData) {
   const supabase = await createClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return { success: false, message: "Vous devez être connecté." }
-  }
+  if (!user) return { success: false, message: "Non authentifié." }
 
   const name = formData.get("name") as string
 
@@ -101,17 +156,39 @@ export async function createStructure(prevState: any, formData: FormData) {
     return { success: false, message: "Le nom de la structure est obligatoire." }
   }
 
-  const { error } = await supabase.from("structures").insert({
-    name,
-    created_by: user.id,
-  })
+  // 1. Créer la structure dans la table `structures`
+  const { data: structure, error: structError } = await supabase
+    .from("structures")
+    .insert({
+      name,
+      created_by: user.id,
+    })
+    .select("id")
+    .single()
 
-  if (error) {
-    return { success: false, message: error.message }
+  if (structError || !structure) {
+    return { success: false, message: structError?.message || "Erreur lors de la création de la structure." }
   }
 
+  // 2. Ajouter automatiquement le créateur comme ADMIN dans `structures_users`
+  const { error: memberError } = await supabase
+    .from("structures_users")
+    .insert({
+      structure_id: structure.id,
+      user_id: user.id,
+      role: "ADMIN",
+    })
+
+  if (memberError && memberError.code !== "23505") {
+    console.error("Erreur ajout du créateur à la structure:", memberError.message)
+    return { success: false, message: memberError.message }
+  }
+
+  // 3. Revalider le cache et rediriger
   revalidatePath("/dashboard/structures")
-  redirect("/dashboard/structures")
+  
+  // Redirection vers la vue détaillée de la structure créée
+  redirect(`/dashboard/structures/${structure.id}`)
 }
 
 // Modifier une structure
@@ -136,4 +213,201 @@ export async function updateStructure(structureId: string, prevState: any, formD
   revalidatePath(`/dashboard/structures/${structureId}`)
   revalidatePath("/dashboard/structures")
   redirect(`/dashboard/structures/${structureId}`)
+}
+
+
+// Fonction utilitaire pour vérifier si l'utilisateur est ADMIN de la structure
+async function isStructureAdmin(supabase: any, userId: string, structureId: string) {
+  const { data } = await supabase
+    .from("structures_users")
+    .select("role")
+    .eq("structure_id", structureId)
+    .eq("user_id", userId)
+    .single()
+
+  return data?.role === 'ADMIN'
+}
+
+// 1. Inviter un membre dans la structure
+export async function inviteMemberToStructure(structureId: string, prevState: any, formData: FormData) {
+  const supabase = await createClient()
+
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  if (!currentUser) return { success: false, message: "Non authentifié." }
+
+  const email = (formData.get("email") as string)?.trim().toLowerCase()
+  const role = (formData.get("role") as string) || "USER"
+
+  if (!email) {
+    return { success: false, message: "L'email est obligatoire." }
+  }
+
+  // Vérification des droits d'admin
+  const isAdmin = await isStructureAdmin(supabase, currentUser.id, structureId)
+  if (!isAdmin) {
+    return { success: false, message: "Action non autorisée. Vous devez être administrateur." }
+  }
+
+  // Vérifier si l'utilisateur est déjà membre de la structure
+  const { data: targetUser } = await supabase
+    .from("users")
+    .select("id")
+    .eq("email", email)
+    .maybeSingle()
+
+  if (targetUser) {
+    const { data: existingMember } = await supabase
+      .from("structures_users")
+      .select("structure_id")
+      .eq("structure_id", structureId)
+      .eq("user_id", targetUser.id)
+      .maybeSingle()
+
+    if (existingMember) {
+      return { success: false, message: "Cet utilisateur fait déjà partie de la structure." }
+    }
+  }
+
+  // Vérifier si une invitation PENDING existe déjà
+  const { data: pendingInvite } = await supabase
+    .from("invitations")
+    .select("id")
+    .eq("email", email)
+    .eq("target_id", structureId)
+    .eq("type", "STRUCTURE")
+    .eq("status", "PENDING")
+    .maybeSingle()
+
+  if (pendingInvite) {
+    return { success: false, message: "Une invitation est déjà en attente pour cet email." }
+  }
+
+  // Récupérer le nom de la structure pour l'email
+  const { data: structData } = await supabase
+    .from("structures")
+    .select("name")
+    .eq("id", structureId)
+    .single()
+
+  const structName = structData?.name || "la structure"
+
+  // Créer l'invitation
+  const { error: inviteError } = await supabase
+    .from("invitations")
+    .insert({
+      email,
+      type: 'STRUCTURE',
+      target_id: structureId,
+      invited_by: currentUser.id,
+      role,
+      status: "PENDING"
+    })
+
+  if (inviteError) {
+    return { success: false, message: inviteError.message }
+  }
+
+  // Envoi de l'email via Resend
+  try {
+    await resend.emails.send({
+      from: 'HubGamers <onboarding@resend.dev>',
+      to: email,
+      subject: `Invitation à rejoindre ${structName} sur HubGamers`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <h2>Invitation Structure E-sport</h2>
+          <p>Bonjour,</p>
+          <p>Vous avez été invité à rejoindre la structure <strong>${structName}</strong> en tant que <strong>${role}</strong>.</p>
+          <p>Connectez-vous sur votre tableau de bord <strong>HubGamers</strong> dans l'onglet <strong>Mes Invitations</strong> pour accepter ou refuser cette proposition.</p>
+        </div>
+      `,
+    })
+  } catch (mailError) {
+    console.error("Erreur d'envoi d'e-mail:", mailError)
+  }
+
+  revalidatePath(`/dashboard/structures/${structureId}`)
+  return { success: true, message: "Invitation envoyée avec succès !" }
+}
+
+// 2. Supprimer un membre de la structure
+export async function removeMemberFromStructure(structureId: string, userIdToRemove: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non authentifié." }
+
+  const isAdmin = await isStructureAdmin(supabase, user.id, structureId)
+  if (!isAdmin) {
+    return { success: false, message: "Action non autorisée. Seuls les administrateurs peuvent retirer un membre." }
+  }
+
+  const { error } = await supabase
+    .from("structures_users")
+    .delete()
+    .eq("structure_id", structureId)
+    .eq("user_id", userIdToRemove)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath(`/dashboard/structures/${structureId}`)
+  return { success: true, message: "Membre retiré de la structure avec succès." }
+}
+
+// 3. Modifier le rôle d'un membre dans la structure
+export async function updateStructureMemberRole(structureId: string, userIdToUpdate: string, formData: FormData) {
+  const supabase = await createClient()
+  const newRole = formData.get("role") as string
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non authentifié." }
+
+  const isAdmin = await isStructureAdmin(supabase, user.id, structureId)
+  if (!isAdmin) {
+    return { success: false, message: "Action non autorisée." }
+  }
+
+  const { error } = await supabase
+    .from("structures_users")
+    .update({ role: newRole })
+    .eq("structure_id", structureId)
+    .eq("user_id", userIdToUpdate)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath(`/dashboard/structures/${structureId}`)
+  return { success: true, message: "Rôle mis à jour avec succès." }
+}
+
+// 4. Récupérer les membres d'une structure avec leurs infos profil
+export async function getStructureMembers(structureId: string) {
+  const supabase = await createClient()
+
+  const { data, error } = await supabase
+    .from("structures_users")
+    .select(`
+      role,
+      user:users (
+        id,
+        email,
+        avatar_url
+      )
+    `)
+    .eq("structure_id", structureId)
+
+  if (error || !data) {
+    console.error("Erreur récupération membres structure:", error?.message)
+    return []
+  }
+
+  return data.map((item: any) => ({
+    id: item.user?.id,
+    email: item.user?.email,
+    avatar_url: item.user?.avatar_url,
+    role: item.role,
+  }))
 }

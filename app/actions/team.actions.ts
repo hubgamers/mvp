@@ -2,6 +2,9 @@
 
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { Resend } from "resend"
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export async function createTeamForStructure(structureId: string, prevState: any, formData: FormData) {
   const supabase = await createClient()
@@ -35,7 +38,6 @@ export async function createTeamForStructure(structureId: string, prevState: any
     .insert({
       structure_id: structureId,
       team_id: newTeam.id,
-      role: "CAPTAIN", // Le créateur/membre l'inscrit en tant que capitaine ou rôle par défaut
     })
 
   if (relationError) {
@@ -52,7 +54,6 @@ export interface TeamDetail {
   game: string
   platform: 'PC' | 'PLAYSTATION' | 'XBOX'
   created_at: string
-  role?: 'MANAGER' | 'CAPTAIN' | 'PLAYER'
   structure?: {
     id: string
     name: string
@@ -62,11 +63,12 @@ export interface TeamDetail {
 // Récupérer toutes les équipes liées à une structure
 export async function getTeamsByStructureId(structureId: string): Promise<TeamDetail[]> {
   const supabase = await createClient()
+  console.log("getTeamsByStructureId")
 
+  // 1. On sélectionne uniquement la relation vers `teams`
   const { data, error } = await supabase
     .from("structures_teams")
     .select(`
-      role,
       team:teams (
         id,
         name,
@@ -77,15 +79,23 @@ export async function getTeamsByStructureId(structureId: string): Promise<TeamDe
     `)
     .eq("structure_id", structureId)
 
-  if (error || !data) {
-    console.error("Erreur récupération équipes structure:", error?.message)
+  if (error) {
+    console.error("Erreur récupération équipes structure:", error.message)
     return []
   }
 
-  return data.map((item: any) => ({
-    ...item.team,
-    role: item.role,
-  })) as TeamDetail[]
+
+  if (!data || data.length === 0) {
+    return []
+  }
+
+
+  // 2. Extraire et nettoyer les objets team (en gérant le cas où Supabase renvoie un objet ou un tableau)
+  const teams = data
+    .map((item: any) => item.team)
+    .filter((team: any) => team !== null)
+
+  return teams as TeamDetail[]
 }
 
 // Récupérer le détail d'une équipe par son ID
@@ -125,40 +135,172 @@ export async function getTeamById(teamId: string, structureId?: string): Promise
 export async function addMemberToTeam(teamId: string, structureId: string, prevState: any, formData: FormData) {
   const supabase = await createClient()
 
-  const email = formData.get("email") as string
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  if (!currentUser) return { success: false, message: "Non authentifié." }
+
+  const email = (formData.get("email") as string)?.trim().toLowerCase()
   const role = formData.get("role") as 'MANAGER' | 'CAPTAIN' | 'PLAYER'
 
   if (!email) {
     return { success: false, message: "L'email du membre est obligatoire." }
   }
 
-  // 1. Trouver l'utilisateur par son email dans la table `users`
-  const { data: user, error: userError } = await supabase
+  // 1. Vérifier si l'utilisateur existe ET s'il est DÉJÀ membre actif de l'équipe
+  const { data: targetUser } = await supabase
     .from("users")
     .select("id")
     .eq("email", email)
-    .single()
+    .maybeSingle()
 
-  if (userError || !user) {
-    return { success: false, message: "Aucun utilisateur trouvé avec cet email." }
-  }
+  if (targetUser) {
+    const { data: existingMember } = await supabase
+      .from("teams_users")
+      .select("team_id")
+      .eq("team_id", teamId)
+      .eq("user_id", targetUser.id)
+      .maybeSingle()
 
-  // 2. Insérer dans la table de liaison `teams_users`
-  const { error: insertError } = await supabase
-    .from("teams_users")
-    .insert({
-      team_id: teamId,
-      user_id: user.id,
-      role: role || "PLAYER",
-    })
-
-  if (insertError) {
-    if (insertError.code === "23505") {
+    if (existingMember) {
       return { success: false, message: "Cet utilisateur fait déjà partie de l'équipe." }
     }
-    return { success: false, message: insertError.message }
+  }
+
+  // 2. Vérifier s'il existe DÉJÀ une invitation PENDING en cours
+  const { data: pendingInvite } = await supabase
+    .from("invitations")
+    .select("id")
+    .eq("email", email)
+    .eq("target_id", teamId)
+    .eq("type", "TEAM")
+    .eq("status", "PENDING")
+    .maybeSingle()
+
+  if (pendingInvite) {
+    return { success: false, message: "Une invitation est déjà en attente pour cette adresse email." }
+  }
+
+  // 3. Si aucune invitation PENDING n'existe (soit aucune, soit de nouvelles après un refus/retrait), on crée l'invitation
+  const { data: teamData } = await supabase.from("teams").select("name").eq("id", teamId).single()
+  const teamName = teamData?.name || "l'équipe"
+
+  const { error: inviteError } = await supabase
+    .from("invitations")
+    .insert({
+      email,
+      type: 'TEAM',
+      target_id: teamId,
+      invited_by: currentUser.id,
+      role: role || "PLAYER",
+      status: "PENDING"
+    })
+
+  if (inviteError) {
+    return { success: false, message: inviteError.message }
+  }
+
+  // 4. Envoi de l'e-mail via Resend
+  try {
+    await resend.emails.send({
+      from: 'HubGamers <onboarding@resend.dev>',
+      to: email,
+      subject: `Invitation à rejoindre l'équipe ${teamName} sur HubGamers`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px; color: #333;">
+          <h2>Invitation E-sport</h2>
+          <p>Bonjour,</p>
+          <p>Vous avez été invité à rejoindre l'équipe <strong>${teamName}</strong> en tant que <strong>${role}</strong>.</p>
+          <p>Rendez-vous dans votre espace <strong>Mes Invitations</strong> sur HubGamers pour accepter ou refuser.</p>
+        </div>
+      `,
+    })
+  } catch (mailError) {
+    console.error("Erreur envoi email:", mailError)
   }
 
   revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
-  return { success: true, message: "Membre ajouté avec succès !" }
+  return { success: true, message: "Invitation envoyée avec succès !" }
+}
+
+// Fonction utilitaire interne pour vérifier si l'utilisateur a les droits de gestion sur l'équipe
+async function canManageTeam(supabase: any, userId: string, teamId: string, structureId: string) {
+  // 1. Vérifier si l'utilisateur est ADMIN de la structure
+  const { data: structUser } = await supabase
+    .from("structures_users")
+    .select("role")
+    .eq("structure_id", structureId)
+    .eq("user_id", userId)
+    .single()
+
+  if (structUser && structUser.role === 'ADMIN') {
+    return true
+  }
+
+  // 2. Vérifier si l'utilisateur est CAPTAIN ou MANAGER de l'équipe
+  const { data: teamUser } = await supabase
+    .from("teams_users")
+    .select("role")
+    .eq("team_id", teamId)
+    .eq("user_id", userId)
+    .single()
+
+  if (teamUser && (teamUser.role === 'CAPTAIN' || teamUser.role === 'MANAGER')) {
+    return true
+  }
+
+  return false
+}
+
+// Suppression d'un membre avec vérification des droits
+export async function removeMemberFromTeam(teamId: string, structureId: string, userIdToRemove: string) {
+  const supabase = await createClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non authentifié." }
+
+  // Vérifier les droits
+  const authorized = await canManageTeam(supabase, user.id, teamId, structureId)
+  if (!authorized) {
+    return { success: false, message: "Action non autorisée. Vous devez être administrateur de la structure ou gestionnaire de l'équipe." }
+  }
+
+  const { error } = await supabase
+    .from("teams_users")
+    .delete()
+    .eq("team_id", teamId)
+    .eq("user_id", userIdToRemove)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+  return { success: true, message: "Membre retiré de l'équipe avec succès." }
+}
+
+// Modification du rôle d'un membre avec vérification des droits
+export async function updateTeamMemberRole(teamId: string, structureId: string, userIdToUpdate: string, formData: FormData) {
+  const supabase = await createClient()
+  const newRole = formData.get("role") as string
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, name: "error", message: "Non authentifié." }
+
+  // Vérifier les droits
+  const authorized = await canManageTeam(supabase, user.id, teamId, structureId)
+  if (!authorized) {
+    return { success: false, message: "Action non autorisée." }
+  }
+
+  const { error } = await supabase
+    .from("teams_users")
+    .update({ role: newRole })
+    .eq("team_id", teamId)
+    .eq("user_id", userIdToUpdate)
+
+  if (error) {
+    return { success: false, message: error.message }
+  }
+
+  revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+  return { success: true, message: "Rôle mis à jour avec succès." }
 }
