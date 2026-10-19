@@ -26,9 +26,9 @@ const data = {
       icon: <TrophyIcon />,
       isActive: false,
       items: [
-        { title: "Créer", url: "/dashboard/tournaments/create" },
+        { title: "Créer", url: "/dashboard/tournaments/new" },
         { title: "Explorer", url: "/dashboard/tournaments/explore" },
-        { title: "Mes tournois", url: "/dashboard/tournaments/my" },
+        { title: "Mes tournois", url: "/dashboard/tournaments" },
       ],
     },
     {
@@ -36,9 +36,9 @@ const data = {
       url: "/dashboard/structures",
       icon: <BotIcon />,
       items: [
-        { title: "Créer", url: "/dashboard/structures/create" },
+        { title: "Créer", url: "/dashboard/structures/new" },
         { title: "Explorer", url: "/dashboard/structures/explore" },
-        { title: "Mes structures", url: "/dashboard/structures/my" },
+        { title: "Mes structures", url: "/dashboard/structures" },
       ],
     },
     {
@@ -47,7 +47,7 @@ const data = {
       icon: <BookOpenIcon />,
       items: [
         { title: "Explorer", url: "/dashboard/studio/explore" },
-        { title: "Mon studio", url: "/dashboard/studio/my" },
+        { title: "Mon studio", url: "/dashboard/studio" },
       ],
     },
     {
