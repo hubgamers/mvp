@@ -60,6 +60,8 @@ CREATE TABLE
     "created_at" timestamptz DEFAULT (now ())
   );
 
+ALTER TABLE "tournaments" ADD CONSTRAINT "tournaments_created_by_fkey" FOREIGN KEY ("created_by") REFERENCES "users" ("id") DEFERRABLE INITIALLY IMMEDIATE;
+
 CREATE TABLE
   "tournament_registrations" (
     "id" uuid PRIMARY KEY DEFAULT (gen_random_uuid ()),
