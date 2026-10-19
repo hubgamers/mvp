@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon } from "lucide-react"
+import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon, LayoutDashboardIcon, TrophyIcon } from "lucide-react"
 
 const data = {
   teams: [
@@ -21,35 +21,33 @@ const data = {
   ],
   navMain: [
     {
-      title: "Playground",
-      url: "#",
-      icon: <TerminalSquareIcon />,
-      isActive: true,
+      title: "Tournois",
+      url: "/dashboard/tournaments",
+      icon: <TrophyIcon />,
+      isActive: false,
       items: [
-        { title: "History", url: "#" },
-        { title: "Starred", url: "#" },
-        { title: "Settings", url: "#" },
+        { title: "Créer", url: "/dashboard/tournaments/create" },
+        { title: "Explorer", url: "/dashboard/tournaments/explore" },
+        { title: "Mes tournois", url: "/dashboard/tournaments/my" },
       ],
     },
     {
-      title: "Models",
-      url: "#",
+      title: "Structures",
+      url: "/dashboard/structures",
       icon: <BotIcon />,
       items: [
-        { title: "Genesis", url: "#" },
-        { title: "Explorer", url: "#" },
-        { title: "Quantum", url: "#" },
+        { title: "Créer", url: "/dashboard/structures/create" },
+        { title: "Explorer", url: "/dashboard/structures/explore" },
+        { title: "Mes structures", url: "/dashboard/structures/my" },
       ],
     },
     {
-      title: "Documentation",
+      title: "Studio",
       url: "#",
       icon: <BookOpenIcon />,
       items: [
-        { title: "Introduction", url: "#" },
-        { title: "Get Started", url: "#" },
-        { title: "Tutorials", url: "#" },
-        { title: "Changelog", url: "#" },
+        { title: "Explorer", url: "/dashboard/studio/explore" },
+        { title: "Mon studio", url: "/dashboard/studio/my" },
       ],
     },
     {
