@@ -49,3 +49,31 @@ export async function login(prevState: any, formData: FormData) {
   revalidatePath('/', 'layout')
   redirect('/dashboard')
 }
+
+export async function getCurrentUserWithProfile() {
+  const supabase = await createClient()
+
+  // 1. Récupère l'utilisateur connecté via Supabase Auth
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+  if (authError || !user) {
+    return { user: null, profile: null, error: "Non authentifié" }
+  }
+
+  // 2. Récupère les infos de la table `users` en même temps (ou via l'ID auth)
+  const { data: profile, error: profileError } = await supabase
+    .from('users') // Remplace par 'profiles' si c'est le nom de ta table
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  if (profileError) {
+    return { user, profile: null, error: profileError.message }
+  }
+
+  return {
+    user,
+    profile, // Contient toutes tes infos custom (pseudo, rôle, structure_id, etc.)
+    error: null,
+  }
+}
