@@ -106,7 +106,9 @@ export function StructureDetailView({ structure }: StructureDetailViewProps) {
                   {structure.teams.map((team: any) => (
                     <div key={team.id} className="p-4 border rounded-lg flex flex-col justify-between space-y-2">
                       <div>
+                        <Link href={`/dashboard/structures/${structure.id}/teams/${team.id}`}>
                         <h4 className="font-bold text-base">{team.name}</h4>
+                        </Link>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground mt-1">
                           <Gamepad2 className="h-3.5 w-3.5 text-primary" /> {team.game}
                           <span>•</span>
