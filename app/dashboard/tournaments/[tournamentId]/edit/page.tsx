@@ -5,7 +5,7 @@ import { getTournamentById } from "@/app/actions/tournament.actions"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { ArrowLeft } from "lucide-react"
-import { EditTournamentForm } from "@/components/edit-tournament-form"
+import { EditTournamentForm } from "@/components/tournament/edit-tournament-form"
 
 interface PageProps {
   params: Promise<{ tournamentId: string }>

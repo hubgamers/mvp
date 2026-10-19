@@ -3,7 +3,7 @@ import { getMyTournaments } from "@/app/actions/tournament.actions"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import { Plus } from "lucide-react"
-import { TournamentList } from "@/components/tournament-list"
+import { TournamentList } from "@/components/tournament/tournament-list"
 
 export default async function TournamentsPage() {
   const tournaments = await getMyTournaments()

@@ -1,6 +1,6 @@
-import { AppSidebar } from "@/components/app-sidebar"
 import { getCurrentUserWithProfile } from "@/app/actions/auth.actions"
 import { connection } from "next/server"
+import { AppSidebar } from "./app-sidebar"
 
 export async function AppSidebarContent() {
     await connection()

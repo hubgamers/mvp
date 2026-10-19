@@ -13,7 +13,7 @@ import {
   SidebarProvider,
   SidebarTrigger,
 } from "@/components/ui/sidebar"
-import { AppSidebarContent } from "@/components/app-sidebar-content"
+import { AppSidebarContent } from "@/components/layout/app-sidebar-content"
 
 export default function DashboardLayout({
   children,

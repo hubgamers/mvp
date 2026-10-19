@@ -1,5 +1,5 @@
 // app/dashboard/tournaments/new/page.tsx
-import { CreateTournamentForm } from "@/components/create-tournament-form"
+import { CreateTournamentForm } from "@/components/tournament/create-tournament-form"
 import { Separator } from "@/components/ui/separator"
 
 export default function NewTournamentPage() {

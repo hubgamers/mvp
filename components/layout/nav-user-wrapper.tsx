@@ -1,6 +1,6 @@
 // components/nav-user-wrapper.tsx
 import { getCurrentUserWithProfile } from "@/app/actions/auth.actions"
-import { NavUser } from "@/components/nav-user"
+import { NavUser } from "@/components/layout/nav-user"
 
 export async function NavUserWrapper() {
   const { user, profile } = await getCurrentUserWithProfile()
