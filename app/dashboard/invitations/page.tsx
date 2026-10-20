@@ -11,7 +11,7 @@ export default async function InvitationsPage() {
       <div>
         <h1 className="text-2xl font-bold tracking-tight">Mes Invitations</h1>
         <p className="text-sm text-muted-foreground">
-          Gérez vos demandes de participation aux structures et équipes e-sport.
+          Gérez vos invitations d'équipe, de structure et de tournoi.
         </p>
       </div>
 

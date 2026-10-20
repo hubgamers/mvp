@@ -597,6 +597,7 @@ model invitations {
   email                                      String                 @db.Citext
   target_type                                invitation_target_type
   target_id                                  String                 @db.Uuid
+  team_id                                    String?                @db.Uuid
   invited_by                                 String                 @db.Uuid
   role                                       String?                @db.VarChar(32)
   token_hash                                 String                 @unique
@@ -607,9 +608,11 @@ model invitations {
   created_at                                 DateTime               @default(now()) @db.Timestamptz(6)
   profiles_invitations_accepted_byToprofiles profiles?              @relation("invitations_accepted_byToprofiles", fields: [accepted_by], references: [id], onUpdate: NoAction)
   profiles_invitations_invited_byToprofiles  profiles               @relation("invitations_invited_byToprofiles", fields: [invited_by], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  teams                                      teams?                 @relation("tournament_invitation_team", fields: [team_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([email, status])
   @@index([target_type, target_id], map: "invitations_target_idx")
+  @@index([team_id, status], map: "invitations_team_status_idx")
   @@schema("public")
 }
 
@@ -976,6 +979,7 @@ model teams {
   deleted_at               DateTime?                  @db.Timestamptz(6)
   structure_teams          structure_teams?
   team_members             team_members[]
+  invitations              invitations[]               @relation("tournament_invitation_team")
   profiles                 profiles                   @relation(fields: [created_by], references: [id], onUpdate: NoAction)
   tournament_registrations tournament_registrations[]
 

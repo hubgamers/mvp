@@ -423,101 +423,117 @@ export interface SearchedTeam {
 
 export async function searchTeamsForTournament(
   query: string,
-  excludeTeamIds: string[] = []
+  excludeTeamIds: string[] = [],
+  tournamentId?: string
 ): Promise<SearchedTeam[]> {
   if (!query || query.trim().length < 2) {
     return []
   }
 
   const cleanQuery = query.trim()
-
-  try {
-    // 1. Rechercher les équipes par nom et récupérer leur structure associée
-    const teamsByName = await prisma.teams.findMany({
-      where: {
-        is_public: true,
-        deleted_at: null,
-        name: {
-          contains: cleanQuery,
-          mode: 'insensitive',
+  const pendingInvitations = tournamentId
+    ? await prisma.invitations.findMany({
+        where: {
+          target_type: "TOURNAMENT",
+          target_id: tournamentId,
+          status: "PENDING",
+          expires_at: { gt: new Date() },
+          team_id: { not: null },
         },
-        id: {
-          notIn: excludeTeamIds.length > 0 ? excludeTeamIds : undefined,
+        select: { team_id: true },
+      })
+    : []
+  const excludedTeamIds = new Set([
+    ...excludeTeamIds,
+    ...pendingInvitations.flatMap((invitation) => invitation.team_id ? [invitation.team_id] : []),
+  ])
+
+  // 1. Rechercher les équipes par nom et récupérer leur structure associée
+  const teamsByName = await prisma.teams.findMany({
+    where: {
+      is_public: true,
+      deleted_at: null,
+      name: {
+        contains: cleanQuery,
+        mode: 'insensitive',
+      },
+      id: {
+        notIn: excludeTeamIds.length > 0 ? excludeTeamIds : undefined,
+      },
+    },
+    include: {
+      structure_teams: {
+        include: {
+          structures: {
+            select: { name: true },
+          },
         },
       },
-      include: {
-        structure_teams: {
-          include: {
-            structures: {
-              select: { name: true },
+    },
+    take: 10,
+  })
+
+  // 2. Rechercher par nom de structure
+  const structuresByName = await prisma.structures.findMany({
+    where: {
+      deleted_at: null,
+      name: {
+        contains: cleanQuery,
+        mode: 'insensitive',
+      },
+    },
+    include: {
+      structure_teams: {
+        where: {
+          teams: {
+            is: { is_public: true, deleted_at: null },
+          },
+        },
+        include: {
+          teams: {
+            select: {
+              id: true,
+              name: true,
+              game: true,
             },
           },
         },
       },
-      take: 10,
-    })
+    },
+    take: 10,
+  })
 
-    // 2. Rechercher par nom de structure
-    const structuresByName = await prisma.structures.findMany({
-      where: {
-        deleted_at: null,
-        name: {
-          contains: cleanQuery,
-          mode: 'insensitive',
-        },
-      },
-      include: {
-        structure_teams: {
-          include: {
-            teams: { where: { is_public: true, deleted_at: null } },
-          },
-        },
-      },
-      take: 10,
-    })
+  const resultMap = new Map<string, SearchedTeam>()
 
-    const excludeSet = new Set(excludeTeamIds)
-    const resultMap = new Map<string, SearchedTeam>()
+  // Ajouter les résultats par équipe
+  for (const team of teamsByName) {
+    if (!excludedTeamIds.has(team.id)) {
+      const structureName = team.structure_teams?.structures?.name || undefined
+      resultMap.set(team.id, {
+        id: team.id,
+        name: team.name,
+        game: team.game,
+        structureName,
+      })
+    }
+  }
 
-    // Ajouter les résultats par équipe
-    for (const team of teamsByName) {
-      if (!excludeSet.has(team.id)) {
-        const structureName = team.structure_teams?.structures?.name || undefined
+  // Ajouter les résultats par structure
+  for (const struct of structuresByName) {
+    for (const rel of struct.structure_teams) {
+      const team = rel.teams
+      if (!excludedTeamIds.has(team.id) && !resultMap.has(team.id)) {
         resultMap.set(team.id, {
           id: team.id,
           name: team.name,
           game: team.game,
-          structureName,
+          structureName: struct.name,
         })
       }
     }
-
-    // Ajouter les résultats par structure
-    for (const struct of structuresByName) {
-      const structName = struct.name
-      const relations = struct.structure_teams || []
-
-      // S'assurer que structure_teams est traité correctement (relation simple ou multiple selon la définition)
-      const relList = Array.isArray(relations) ? relations : [relations]
-
-      for (const rel of relList) {
-        const team = rel?.teams
-        if (team && !excludeSet.has(team.id) && !resultMap.has(team.id)) {
-          resultMap.set(team.id, {
-            id: team.id,
-            name: team.name,
-            game: team.game,
-            structureName: structName,
-          })
-        }
-      }
-    }
-
-    return Array.from(resultMap.values())
-  } catch (error) {
-    console.error("Erreur searchTeamsForTournament:", error)
-    return []
   }
+
+  return Array.from(resultMap.values())
 }
 
 export async function getMyTeams(): Promise<TeamDetail[]> {

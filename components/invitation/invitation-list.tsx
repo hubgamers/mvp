@@ -5,13 +5,14 @@ import { respondToInvitation } from "@/app/actions/invitation.actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Shield, Users, Check, X } from "lucide-react"
+import { Shield, Users, Trophy, Check, X } from "lucide-react"
 
 interface InvitationItem {
   id: string
-  type: 'STRUCTURE' | 'TEAM'
-  role: string
+  type: 'STRUCTURE' | 'TEAM' | 'TOURNAMENT'
+  role: string | null
   targetName: string
+  teamName?: string
 }
 
 interface InvitationsListProps {
@@ -31,22 +32,34 @@ export function InvitationsList({ invitations }: InvitationsListProps) {
     <div className="grid gap-4">
       {invitations.map((item) => {
         const acceptAction = respondToInvitation.bind(null, item.id, 'ACCEPTED')
-        const refuseAction = respondToInvitation.bind(null, item.id, 'REFUSED')
+        const refuseAction = respondToInvitation.bind(null, item.id, 'DECLINED')
 
         return (
           <Card key={item.id} className="flex flex-col sm:flex-row items-center justify-between p-4 gap-4">
             <div className="flex items-center gap-4">
               <div className="p-3 bg-primary/10 rounded-full text-primary">
-                {item.type === 'TEAM' ? <Users className="h-6 w-6" /> : <Shield className="h-6 w-6" />}
+                {item.type === 'TOURNAMENT'
+                  ? <Trophy className="h-6 w-6" />
+                  : item.type === 'TEAM'
+                    ? <Users className="h-6 w-6" />
+                    : <Shield className="h-6 w-6" />}
               </div>
               <div>
                 <div className="flex items-center gap-2">
                   <h3 className="font-bold text-lg">{item.targetName}</h3>
-                  <Badge variant="outline">{item.type}</Badge>
+                  <Badge variant="outline">
+                    {item.type === 'TOURNAMENT' ? 'TOURNOI' : item.type}
+                  </Badge>
                 </div>
-                <p className="text-sm text-muted-foreground">
-                  Rôle proposé : <span className="font-semibold text-foreground">{item.role}</span>
-                </p>
+                {item.type === 'TOURNAMENT' ? (
+                  <p className="text-sm text-muted-foreground">
+                    Invitation pour l’équipe <span className="font-semibold text-foreground">{item.teamName}</span>
+                  </p>
+                ) : item.role ? (
+                  <p className="text-sm text-muted-foreground">
+                    Rôle proposé : <span className="font-semibold text-foreground">{item.role}</span>
+                  </p>
+                ) : null}
               </div>
             </div>
 

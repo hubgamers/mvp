@@ -185,7 +185,7 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <UserPlus className="h-4 w-4 text-primary" /> Inviter ou inscrire une équipe
+                  <UserPlus className="h-4 w-4 text-primary" /> Inviter une équipe
                 </CardTitle>
               </CardHeader>
               <CardContent>

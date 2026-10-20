@@ -2,7 +2,7 @@
 
 import { useState, useTransition, type FormEvent } from "react"
 import { useRouter } from "next/navigation"
-import { registerTeamToTournament } from "@/app/actions/tournament.actions"
+import { inviteTeamToTournament } from "@/app/actions/invitation.actions"
 import { searchTeamsForTournament, type SearchedTeam } from "@/app/actions/team.actions"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -27,11 +27,13 @@ export default function InviteTeamForm({ tournamentId, existingRegistrations }: 
 
   function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    setTeams([])
+    setSelectedTeamId("")
+    setHasSearched(false)
     startSearch(async () => {
       try {
-        const results = await searchTeamsForTournament(query, excludedIds)
+        const results = await searchTeamsForTournament(query, excludedIds, tournamentId)
         setTeams(results)
-        setSelectedTeamId("")
         setHasSearched(true)
       } catch {
         toast.error("La recherche d'équipes a échoué.")
@@ -46,7 +48,7 @@ export default function InviteTeamForm({ tournamentId, existingRegistrations }: 
     }
     startTransition(async () => {
       try {
-        const result = await registerTeamToTournament(tournamentId, selectedTeamId)
+        const result = await inviteTeamToTournament(tournamentId, selectedTeamId)
         if (!result.success) {
           toast.error(result.message)
           return
@@ -56,7 +58,7 @@ export default function InviteTeamForm({ tournamentId, existingRegistrations }: 
         setSelectedTeamId("")
         router.refresh()
       } catch {
-        toast.error("Impossible d'inscrire l'équipe pour le moment.")
+        toast.error("Impossible d'envoyer l'invitation pour le moment.")
       }
     })
   }
@@ -109,7 +111,7 @@ export default function InviteTeamForm({ tournamentId, existingRegistrations }: 
           </div>
           <Button type="button" onClick={registerTeam} disabled={isPending || !selectedTeamId}>
             {isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <UserPlus className="mr-2 size-4" />}
-            Inscrire l’équipe sélectionnée
+            Inviter le propriétaire de l’équipe
           </Button>
         </div>
       )}
