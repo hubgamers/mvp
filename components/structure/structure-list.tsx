@@ -10,6 +10,7 @@ interface StructureListProps {
 }
 
 export function StructureList({ structures }: StructureListProps) {
+  console.log(structures)
   if (structures.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center animate-in fade-in-50">
@@ -54,7 +55,7 @@ export function StructureList({ structures }: StructureListProps) {
           <CardFooter className="pt-2">
             <Button variant="outline" className="w-full" asChild>
               <Link href={`/dashboard/structures/${structure.id}`}>
-                Gérer la structure
+                {structure.isAdmin ? 'Gérer la structure' : 'Détails de la structure'}
               </Link>
             </Button>
           </CardFooter>

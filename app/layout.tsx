@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "sonner";
+import { Suspense } from "react";
+import { AuthToastListener } from "@/components/auth-toast-listener";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -25,6 +27,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* Suspense est requis par Next.js lors de l'utilisation de useSearchParams dans un layout */}
+        <Suspense fallback={null}>
+          <AuthToastListener />
+        </Suspense>
         {children}
         <Toaster richColors position="top-right" />
       </body>

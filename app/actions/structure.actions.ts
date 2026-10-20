@@ -21,6 +21,7 @@ export interface Structure {
   }
   members_count?: number
   teams?: Team[]
+  isAdmin: boolean
 }
 
 export interface Team {
@@ -32,11 +33,15 @@ export interface Team {
   created_at?: string
 }
 
-// Récupérer toutes les structures
-export async function getStructures(): Promise<Structure[]> {
+export async function getStructures() {
   const supabase = await createClient()
 
-  const { data, error } = await supabase
+  // 1. Récupérer l'utilisateur connecté
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  // 2. Récupérer toutes les structures avec le créateur
+  const { data: structures, error: structError } = await supabase
     .from("structures")
     .select(`
       *,
@@ -48,12 +53,33 @@ export async function getStructures(): Promise<Structure[]> {
     `)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Erreur récupération structures:", error.message)
+  if (structError || !structures) {
+    console.error("Erreur récupération structures:", structError?.message)
     return []
   }
 
-  return data as Structure[]
+  // 3. Récupérer les rôles de l'utilisateur connecté pour toutes les structures
+  const { data: userRoles, error: rolesError } = await supabase
+    .from("structures_users")
+    .select("structure_id, role")
+    .eq("user_id", user.id)
+
+  if (rolesError) {
+    console.error("Erreur récupération rôles utilisateur:", rolesError.message)
+  }
+
+  // Créer un Set ou une Map des structures où l'utilisateur est ADMIN
+  const adminStructureIds = new Set(
+    userRoles
+      ?.filter((item) => item.role === "ADMIN")
+      .map((item) => item.structure_id) || []
+  )
+
+  // 4. Injecter `isAdmin` dans chaque objet structure
+  return structures.map((structure: any) => ({
+    ...structure,
+    isAdmin: adminStructureIds.has(structure.id),
+  }))
 }
 
 export async function getMyStructures(): Promise<Structure[]> {
@@ -64,10 +90,10 @@ export async function getMyStructures(): Promise<Structure[]> {
 
   const userId = user.user.id
 
-  // 1. Récupérer les ID des structures où l'utilisateur est membre (dans `structures_users`)
+  // 1. Récupérer les structures ET le rôle de l'utilisateur dans `structures_users`
   const { data: memberRelations, error: memberError } = await supabase
     .from("structures_users")
-    .select("structure_id")
+    .select("structure_id, role")
     .eq("user_id", userId)
 
   if (memberError) {
@@ -75,6 +101,13 @@ export async function getMyStructures(): Promise<Structure[]> {
   }
 
   const memberStructureIds = memberRelations?.map((rel) => rel.structure_id) || []
+  
+  // Créer un Set des structures où l'utilisateur est ADMIN
+  const adminStructureIds = new Set(
+    memberRelations
+      ?.filter((rel) => rel.role === "ADMIN")
+      .map((rel) => rel.structure_id) || []
+  )
 
   // 2. Récupérer toutes les structures créées par l'utilisateur OU dont il est membre
   const { data, error } = await supabase
@@ -90,19 +123,27 @@ export async function getMyStructures(): Promise<Structure[]> {
     .or(`created_by.eq.${userId}${memberStructureIds.length > 0 ? `,id.in.(${memberStructureIds.join(',')})` : ''}`)
     .order("created_at", { ascending: false })
 
-  if (error) {
-    console.error("Erreur récupération structures:", error.message)
+  if (error || !data) {
+    console.error("Erreur récupération structures:", error?.message)
     return []
   }
 
-  return data as Structure[]
+  // 3. Mapper les données pour injecter `isAdmin` (True si admin, ou si l'utilisateur est le créateur direct)
+  return data.map((structure: any) => ({
+    ...structure,
+    isAdmin: adminStructureIds.has(structure.id) || structure.created_by === userId,
+  })) as Structure[]
 }
 
 // Récupérer une structure par son ID
 export async function getStructureById(id: string) {
   const supabase = await createClient()
 
-  // 1. Récupérer la structure, son créateur et ses membres
+  // 1. Récupérer l'utilisateur connecté
+  const { data: { user: currentUser } } = await supabase.auth.getUser()
+  if (!currentUser) return null
+
+  // 2. Récupérer la structure, son créateur, et ses membres
   const { data: structure, error } = await supabase
     .from("structures")
     .select(`
@@ -127,7 +168,7 @@ export async function getStructureById(id: string) {
 
   if (error || !structure) return null
 
-  // 2. Récupérer les équipes de cette structure
+  // 3. Récupérer les équipes de cette structure
   const { data: teamsData } = await supabase
     .from("structures_teams")
     .select(`
@@ -135,11 +176,23 @@ export async function getStructureById(id: string) {
     `)
     .eq("structure_id", id)
 
+  // 4. Déterminer si l'utilisateur courant est ADMIN de cette structure
+  const currentUserMembership = structure.members?.find(
+    (m: any) => m.user?.id === currentUser.id
+  )
+  const isAdmin = currentUserMembership?.role === 'ADMIN'
+
+  // 5. Formater proprement les membres (aplatir l'objet user + rôle)
+  const formattedMembers = structure.members?.map((m: any) => ({
+    ...m.user,
+    role: m.role,
+  })).filter((m: any) => m.id) || []
+
   return {
     ...structure,
+    isAdmin,
+    members: formattedMembers,
     teams: teamsData?.map((item: any) => item.team).filter(Boolean) || [],
-    // Optionnel : si tu preferes un tableau d'utilisateurs "aplatis" avec leur rôle directement :
-    // members: structure.members?.map((m: any) => ({ ...m.user, role: m.role })) || []
   }
 }
 
