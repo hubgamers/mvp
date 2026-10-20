@@ -1,8 +1,24 @@
+"use client"
 import { GalleryVerticalEnd } from "lucide-react"
 
 import { LoginForm } from "@/components/auth/login-form"
+import { useSearchParams } from "next/navigation"
+import { useEffect } from "react"
+import { toast } from "sonner"
 
 export default function LoginPage() {
+  const searchParams = useSearchParams()
+  const authRequired = searchParams.get('authRequired')
+
+  useEffect(() => {
+  if (authRequired) {
+    toast.error("Accès restreint", {
+      id: "auth-required-toast", // <-- Identifiant unique pour éviter les doublons
+      description: "Vous devez être connecté pour accéder à cette page.",
+      duration: 5000,
+    })
+  }
+}, [authRequired])
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
       <div className="flex flex-col gap-4 p-6 md:p-10">

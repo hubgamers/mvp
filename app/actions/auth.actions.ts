@@ -50,6 +50,23 @@ export async function login(prevState: any, formData: FormData) {
   redirect('/dashboard')
 }
 
+export async function logout() {
+  const supabase = await createClient()
+
+  // 1. Déconnecte l'utilisateur et invalide le token/session Supabase
+  const { error } = await supabase.auth.signOut()
+
+  if (error) {
+    return { error: error.message }
+  }
+
+  // 2. Invalide le cache du layout pour mettre à jour l'UI
+  revalidatePath('/', 'layout')
+
+  // 3. Redirige vers la page de connexion
+  redirect('/login')
+}
+
 export async function getCurrentUserWithProfile() {
   const supabase = await createClient()
 
