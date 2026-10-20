@@ -1,6 +1,7 @@
 // app/actions/invitation.actions.ts
 'use server'
 
+import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { Resend } from "resend"
@@ -14,104 +15,145 @@ export async function getMyInvitations() {
 
   if (!user || !user.email) return []
 
-  const { data: invitations } = await supabase
-    .from("invitations")
-    .select("*")
-    .eq("email", user.email)
-    .eq("status", "PENDING")
-
-  if (!invitations) return []
-
-  // Résolution dynamique des noms (Structure ou Équipe)
-  const enrichedInvitations = await Promise.all(
-    invitations.map(async (inv) => {
-      let targetName = "Inconnu"
-      if (inv.type === 'TEAM') {
-        const { data } = await supabase.from("teams").select("name").eq("id", inv.target_id).single()
-        if (data) targetName = data.name
-      } else if (inv.type === 'STRUCTURE') {
-        const { data } = await supabase.from("structures").select("name").eq("id", inv.target_id).single()
-        if (data) targetName = data.name
-      }
-      return {
-        id: inv.id,
-        type: inv.type,
-        role: inv.role,
-        targetName,
-      }
+  try {
+    const invitations = await prisma.invitations.findMany({
+      where: {
+        email: user.email,
+        status: "PENDING",
+      },
     })
-  )
 
-  return enrichedInvitations
+    if (!invitations || invitations.length === 0) return []
+
+    // Résolution dynamique des noms (Structure ou Équipe)
+    const enrichedInvitations = await Promise.all(
+      invitations.map(async (inv) => {
+        let targetName = "Inconnu"
+        
+        if (inv.target_type === 'TEAM') {
+          const team = await prisma.teams.findUnique({
+            where: { id: inv.target_id },
+            select: { name: true },
+          })
+          if (team) targetName = team.name
+        } else if (inv.target_type === 'STRUCTURE') {
+          const structure = await prisma.structures.findUnique({
+            where: { id: inv.target_id },
+            select: { name: true },
+          })
+          if (structure) targetName = structure.name
+        }
+
+        return {
+          id: inv.id,
+          type: inv.target_type,
+          role: inv.role,
+          targetName,
+        }
+      })
+    )
+
+    return enrichedInvitations
+  } catch (error) {
+    console.error("Erreur getMyInvitations:", error)
+    return []
+  }
 }
 
 // 2. Répondre à une invitation (Accepter / Refuser)
-export async function respondToInvitation(invitationId: string, action: 'ACCEPTED' | 'REFUSED') {
+export async function respondToInvitation(invitationId: string, action: 'ACCEPTED' | 'DECLINED') {
   const supabase = await createClient()
-
   const { data: { user } } = await supabase.auth.getUser()
+
   if (!user || !user.email) return { success: false, message: "Non authentifié." }
 
-  // 1. Récupérer l'invitation ET VERIFIER QU'ELLE EST STRICTEMENT 'PENDING'
-  const { data: invite, error: fetchError } = await supabase
-    .from("invitations")
-    .select("*")
-    .eq("id", invitationId)
-    .eq("email", user.email)
-    .eq("status", "PENDING") // <-- SÉCURITÉ : Empêche la réutilisation d'une invitation déjà traitée
-    .single()
+  try {
+    // 1. Récupérer l'invitation ET VERIFIER QU'ELLE EST STRICTEMENT 'PENDING'
+    const invite = await prisma.invitations.findFirst({
+      where: {
+        id: invitationId,
+        email: user.email,
+        status: "PENDING",
+      },
+    })
 
-  if (fetchError || !invite) {
-    return { success: false, message: "Invitation invalide, expirée ou déjà traitée." }
-  }
-
-  // 2. Traitement de l'acceptation
-  if (action === 'ACCEPTED') {
-    if (invite.type === 'TEAM') {
-      // Ajout dans le roster de l'équipe
-      const { error: teamJoinError } = await supabase
-        .from("teams_users")
-        .insert({ team_id: invite.target_id, user_id: user.id, role: invite.role })
-
-      if (teamJoinError && teamJoinError.code !== '23505') {
-        return { success: false, message: teamJoinError.message }
-      }
-
-      // Rattachement automatique à la structure si nécessaire
-      const { data: structTeam } = await supabase
-        .from("structures_teams")
-        .select("structure_id")
-        .eq("team_id", invite.target_id)
-        .single()
-
-      if (structTeam) {
-        await supabase
-          .from("structures_users")
-          .insert({ structure_id: structTeam.structure_id, user_id: user.id, role: 'USER' })
-          .select()
-      }
-    } else if (invite.type === 'STRUCTURE') {
-      const { error: structJoinError } = await supabase
-        .from("structures_users")
-        .insert({ structure_id: invite.target_id, user_id: user.id, role: invite.role })
-
-      if (structJoinError && structJoinError.code !== '23505') {
-        return { success: false, message: structJoinError.message }
-      }
+    if (!invite) {
+      return { success: false, message: "Invitation invalide, expirée ou déjà traitée." }
     }
+
+    // 2. Traitement de l'acceptation via une transaction Prisma sécurisée
+    if (action === 'ACCEPTED') {
+      await prisma.$transaction(async (tx) => {
+        if (invite.target_type === 'TEAM') {
+          // Ajout dans le roster de l'équipe (`team_members`)
+          try {
+            await tx.team_members.create({
+              data: {
+                team_id: invite.target_id,
+                user_id: user.id,
+                role: (invite.role as any) || "PLAYER",
+              },
+            })
+          } catch (e: any) {
+            // Ignore si la relation existe déjà (code d'erreur unique constraint PostgreSQL)
+            if (e.code !== 'P2002') throw e
+          }
+
+          // Rattachement automatique à la structure parente si l'équipe y est liée
+          const structTeam = await tx.structure_teams.findUnique({
+            where: { team_id: invite.target_id },
+            select: { structure_id: true },
+          })
+
+          if (structTeam) {
+            try {
+              await tx.structure_members.create({
+                data: {
+                  structure_id: structTeam.structure_id,
+                  user_id: user.id,
+                  role: 'MEMBER',
+                },
+              })
+            } catch (e: any) {
+              if (e.code !== 'P2002') throw e
+            }
+          }
+        } else if (invite.target_type === 'STRUCTURE') {
+          try {
+            await tx.structure_members.create({
+              data: {
+                structure_id: invite.target_id,
+                user_id: user.id,
+                role: (invite.role as any) || "MEMBER",
+              },
+            })
+          } catch (e: any) {
+            if (e.code !== 'P2002') throw e
+          }
+        }
+
+        // 3. Mettre à jour le statut de l'invitation
+        await tx.invitations.update({
+          where: { id: invitationId },
+          data: { 
+            status: action,
+            accepted_at: new Date(),
+            accepted_by: user.id,
+          },
+        })
+      })
+    } else {
+      // Si l'action est un refus (DECLINED)
+      await prisma.invitations.update({
+        where: { id: invitationId },
+        data: { status: 'DECLINED' },
+      })
+    }
+
+    revalidatePath("/dashboard/invitations")
+    return { success: true, message: action === 'ACCEPTED' ? "Invitation acceptée !" : "Invitation refusée." }
+  } catch (error: any) {
+    console.error("Erreur respondToInvitation:", error)
+    return { success: false, message: error?.message || "Une erreur est survenue." }
   }
-
-  // 3. Passation de l'invitation à 'ACCEPTED' ou 'REFUSED'
-  // Une fois le statut changé, elle ne sera PLUS JAMAIS sélectionnable par `eq("status", "PENDING")`
-  const { error: updateError } = await supabase
-    .from("invitations")
-    .update({ status: action })
-    .eq("id", invitationId)
-
-  if (updateError) {
-    return { success: false, message: updateError.message }
-  }
-
-  revalidatePath("/dashboard/invitations")
-  return { success: true, message: action === 'ACCEPTED' ? "Invitation acceptée !" : "Invitation refusée." }
 }

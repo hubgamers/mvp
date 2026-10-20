@@ -1,6 +1,6 @@
 - Vérifier les invitations des équipes aux tournois
 OK - Ajouter des fausses données dont des équipes afin de tester la génération du bracket
-- Ajouter config tournoi (nb teams, match duration, bo time, startTime, maxTeams)
+- Ajouter config tournoi (match duration, bo time, startTime, maxTeams)
 - Créer la page publique du tournoi
 - Afficher un vrai arbre de tournoi
 - Pouvoir placer manuellement les equipes au premier tour de l'arbre
