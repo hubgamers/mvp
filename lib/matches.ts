@@ -77,17 +77,31 @@ export async function getMatchDetailsForUser(matchId: string, userId: string) {
       })
     : null
 
-  const isOrganizer =
+  const tournamentMembership = await prisma.tournament_members.findUnique({
+    where: {
+      tournament_id_user_id: {
+        tournament_id: match.tournaments.id,
+        user_id: userId,
+      },
+    },
+    select: { role: true },
+  })
+
+  const isStructureOrganizer =
     match.tournaments.created_by === userId ||
     structureMembership?.role === "OWNER" ||
     structureMembership?.role === "ADMIN"
+  const isTournamentAdmin = tournamentMembership?.role === "ADMIN"
+  const isTournamentReferee = tournamentMembership?.role === "ARBITRE"
+  const canManageMatchAsOrganizer = isStructureOrganizer || isTournamentAdmin || isTournamentReferee
   const isTeamMember = teamMemberships.length > 0
   const canManageMatch =
-    isOrganizer ||
+    canManageMatchAsOrganizer ||
     teamMemberships.some((membership) => membership.role === "CAPTAIN" || membership.role === "MANAGER")
-  const canUseMatchChat = isOrganizer || isTeamMember
+  const canUseMatchChat = canManageMatchAsOrganizer || isTeamMember
+  const canManageBroadcast = isStructureOrganizer || isTournamentAdmin
 
-  if (!match.tournaments.is_public && !isOrganizer && !isTeamMember) return null
+  if (!match.tournaments.is_public && !canManageMatchAsOrganizer && !isTeamMember) return null
 
-  return { match, canManageMatch, canUseMatchChat, canManageBroadcast: isOrganizer }
+  return { match, canManageMatch, canUseMatchChat, canManageBroadcast }
 }

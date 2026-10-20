@@ -901,3 +901,33 @@ commit;
 --    structures_users -> structure_members, teams_users -> team_members, puis migration
 --    des anciens matchs alpha/beta vers match_slots.
 -- ============================================================================
+
+-- ---------------------------------------------------------------------------
+-- TABLE : tournament_members (Membres / Staff d'un tournoi)
+-- ---------------------------------------------------------------------------
+
+create table public.tournament_members (
+  tournament_id uuid not null references public.tournaments(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  role varchar(32) not null default 'MEMBER',
+  joined_at timestamptz not null default now(),
+  primary key (tournament_id, user_id)
+);
+
+-- Index pour optimiser les recherches par utilisateur
+create index tournament_members_user_idx on public.tournament_members(user_id);
+
+-- Activation de la RLS (Row Level Security)
+alter table public.tournament_members enable row level security;
+
+-- Politiques RLS associées
+create policy tournament_members_select_public on public.tournament_members
+for select using (
+  exists (select 1 from public.tournaments t where t.id = tournament_id and t.is_public)
+  or public.is_tournament_manager(tournament_id)
+  or user_id = (select auth.uid())
+);
+
+create policy tournament_members_manage_manager on public.tournament_members
+for all to authenticated using (public.is_tournament_manager(tournament_id))
+with check (public.is_tournament_manager(tournament_id));

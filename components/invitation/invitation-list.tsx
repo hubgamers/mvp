@@ -23,7 +23,7 @@ export function InvitationsList({ invitations }: InvitationsListProps) {
   if (invitations.length === 0) {
     return (
       <div className="text-center py-12 border border-dashed rounded-lg text-muted-foreground">
-        Vous n'avez aucune invitation en attente pour le moment.
+        Vous n&apos;avez aucune invitation en attente pour le moment.
       </div>
     )
   }
@@ -31,8 +31,12 @@ export function InvitationsList({ invitations }: InvitationsListProps) {
   return (
     <div className="grid gap-4">
       {invitations.map((item) => {
-        const acceptAction = respondToInvitation.bind(null, item.id, 'ACCEPTED')
-        const refuseAction = respondToInvitation.bind(null, item.id, 'DECLINED')
+        const acceptAction = async () => {
+          await respondToInvitation(item.id, "ACCEPTED")
+        }
+        const refuseAction = async () => {
+          await respondToInvitation(item.id, "DECLINED")
+        }
 
         return (
           <Card key={item.id} className="flex flex-col sm:flex-row items-center justify-between p-4 gap-4">
@@ -51,9 +55,16 @@ export function InvitationsList({ invitations }: InvitationsListProps) {
                     {item.type === 'TOURNAMENT' ? 'TOURNOI' : item.type}
                   </Badge>
                 </div>
-                {item.type === 'TOURNAMENT' ? (
+                {item.type === 'TOURNAMENT' && item.teamName ? (
                   <p className="text-sm text-muted-foreground">
                     Invitation pour l’équipe <span className="font-semibold text-foreground">{item.teamName}</span>
+                  </p>
+                ) : item.type === "TOURNAMENT" && (item.role === "ADMIN" || item.role === "ARBITRE") ? (
+                  <p className="text-sm text-muted-foreground">
+                    Rôle proposé :{" "}
+                    <span className="font-semibold text-foreground">
+                      {item.role === "ADMIN" ? "Administrateur" : "Arbitre"}
+                    </span>
                   </p>
                 ) : item.role ? (
                   <p className="text-sm text-muted-foreground">

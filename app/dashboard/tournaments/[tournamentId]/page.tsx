@@ -12,6 +12,8 @@ export default async function TournamentDetailPage({ params }: PageProps) {
   const { tournamentId } = await params
   const tournament = await getTournamentById(tournamentId)
 
+  console.log("tournament", tournamentId)
+
   if (!tournament) {
     notFound()
   }

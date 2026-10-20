@@ -108,6 +108,121 @@ export async function getMatchChatMessages(matchId: string) {
   }
 }
 
+export async function getMyMatchChats() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false as const, message: "Non authentifié." }
+
+  try {
+    const [structureMemberships, tournamentMemberships] = await Promise.all([
+      prisma.structure_members.findMany({
+        where: { user_id: user.id, role: { in: ["OWNER", "ADMIN"] } },
+        select: { structure_id: true },
+      }),
+      prisma.tournament_members.findMany({
+        where: { user_id: user.id },
+        select: { tournament_id: true, role: true },
+      }),
+    ])
+    const managedTournaments = await prisma.tournaments.findMany({
+      where: {
+        deleted_at: null,
+        OR: [
+          { created_by: user.id },
+          ...(structureMemberships.length
+            ? [{ organizer_structure_id: { in: structureMemberships.map((membership) => membership.structure_id) } }]
+            : []),
+          ...(tournamentMemberships.length
+            ? [{ tournament_members: { some: { user_id: user.id } } }]
+            : []),
+        ],
+      },
+      select: { id: true },
+    })
+
+    const matches = await prisma.matches.findMany({
+      where: {
+        tournaments: { deleted_at: null },
+        OR: [
+          ...(managedTournaments.length
+            ? [{ tournament_id: { in: managedTournaments.map((tournament) => tournament.id) } }]
+            : []),
+          {
+            match_slots_match_slots_match_idTomatches: {
+              some: {
+                tournament_registrations: {
+                  is: {
+                    teams: { team_members: { some: { user_id: user.id } } },
+                  },
+                },
+              },
+            },
+          },
+        ],
+      },
+      orderBy: [{ scheduled_at: "desc" }, { updated_at: "desc" }],
+      include: {
+        tournaments: { select: { id: true, name: true, game: true } },
+        tournament_stages: { select: { name: true } },
+        match_slots_match_slots_match_idTomatches: {
+          select: {
+            side: true,
+            tournament_registrations: {
+              select: { teams: { select: { name: true } } },
+            },
+          },
+        },
+        match_messages: {
+          orderBy: { created_at: "desc" },
+          take: 1,
+          include: {
+            profiles: { select: { username: true, display_name: true } },
+          },
+        },
+      },
+    })
+
+    const rolesByTournament = new Map(
+      tournamentMemberships.map((membership) => [membership.tournament_id, membership.role]),
+    )
+    const managedTournamentIds = new Set(managedTournaments.map((tournament) => tournament.id))
+
+    return {
+      success: true as const,
+      chats: matches.map((match) => ({
+        id: match.id,
+        tournamentId: match.tournaments.id,
+        tournamentName: match.tournaments.name,
+        game: match.tournaments.game,
+        stageName: match.tournament_stages.name,
+        roundNumber: match.round_number,
+        matchOrder: match.match_order,
+        status: match.status,
+        scheduledAt: match.scheduled_at?.toISOString() ?? null,
+        teams: match.match_slots_match_slots_match_idTomatches
+          .map((slot) => slot.tournament_registrations?.teams.name)
+          .filter((name): name is string => Boolean(name)),
+        role:
+          rolesByTournament.get(match.tournament_id) ??
+          (managedTournamentIds.has(match.tournament_id) ? "ADMIN" : null),
+        latestMessage: match.match_messages[0]
+          ? {
+              senderName:
+                match.match_messages[0].profiles.display_name ||
+                match.match_messages[0].profiles.username ||
+                "Joueur",
+              content: match.match_messages[0].content,
+              createdAt: match.match_messages[0].created_at.toISOString(),
+            }
+          : null,
+      })),
+    }
+  } catch (error) {
+    console.error("Erreur getMyMatchChats:", error)
+    return { success: false as const, message: "Impossible de charger vos chats de match." }
+  }
+}
+
 export async function sendMatchChatMessage(matchId: string, rawContent: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()

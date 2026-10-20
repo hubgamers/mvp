@@ -6,6 +6,7 @@ import {
   Gamepad2,
   Home,
   Mail,
+  MessageSquare,
   Trophy,
   UserRound,
   UsersRound,
@@ -29,7 +30,10 @@ import {
 const navigation = [
   {
     label: "Espace",
-    items: [{ title: "Accueil", url: "/dashboard", icon: <Home /> }],
+    items: [
+      { title: "Accueil", url: "/dashboard", icon: <Home /> },
+      { title: "Chats", url: "/dashboard/chats", icon: <MessageSquare /> },
+    ],
   },
   {
     label: "Organiser",

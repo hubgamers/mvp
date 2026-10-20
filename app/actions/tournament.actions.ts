@@ -31,6 +31,12 @@ export interface TournamentDetail {
   team_size_max?: number | null
   creator?: { username: string | null; avatar_url: string | null } | null
   isAdmin?: boolean
+  canManageStaff?: boolean
+  staffMembers?: Array<{
+    userId: string
+    name: string
+    role: "ADMIN" | "ARBITRE"
+  }>
   registrations?: Array<{
     id: string
     status: string
@@ -168,44 +174,70 @@ export async function getTournamentById(idOrSlug: string) {
             },
           },
         },
+        tournament_members: {
+          include: {
+            profiles: {
+              select: { id: true, username: true, display_name: true },
+            },
+          },
+          orderBy: { joined_at: "asc" },
+        },
       },
     })
 
     if (!tournament) return null
-    if (!tournament.is_public && tournament.created_by !== user?.id) {
-      if (!user) return null
-
-      const [teamMembership, structureMembership] = await Promise.all([
-        prisma.team_members.findFirst({
-          where: {
-            user_id: user.id,
-            team_id: { in: tournament.tournament_registrations.map((registration) => registration.team_id) },
-          },
-          select: { team_id: true },
-        }),
-        tournament.organizer_structure_id
-          ? prisma.structure_members.findUnique({
-              where: {
-                structure_id_user_id: {
-                  structure_id: tournament.organizer_structure_id,
+    const [teamMembership, structureMembership] = user
+      ? await Promise.all([
+          !tournament.is_public
+            ? prisma.team_members.findFirst({
+                where: {
                   user_id: user.id,
+                  team_id: { in: tournament.tournament_registrations.map((registration) => registration.team_id) },
                 },
-              },
-              select: { role: true },
-            })
-          : Promise.resolve(null),
-      ])
-      const isStructureAdmin =
-        structureMembership?.role === "OWNER" || structureMembership?.role === "ADMIN"
-      if (!teamMembership && !isStructureAdmin) return null
+                select: { team_id: true },
+              })
+            : Promise.resolve(null),
+          tournament.organizer_structure_id
+            ? prisma.structure_members.findUnique({
+                where: {
+                  structure_id_user_id: {
+                    structure_id: tournament.organizer_structure_id,
+                    user_id: user.id,
+                  },
+                },
+                select: { role: true },
+              })
+            : Promise.resolve(null),
+        ])
+      : [null, null]
+    const isStructureAdmin =
+      structureMembership?.role === "OWNER" || structureMembership?.role === "ADMIN"
+    const currentTournamentMembership = tournament.tournament_members.find(
+      (membership) => membership.user_id === user?.id,
+    )
+    const isTournamentCreator = tournament.created_by === user?.id
+    if (
+      !tournament.is_public &&
+      !isTournamentCreator &&
+      !isStructureAdmin &&
+      !currentTournamentMembership &&
+      !teamMembership
+    ) {
+      return null
     }
-    const { matches, ...tournamentData } = tournament
+    const { matches, tournament_members: tournamentMembers, ...tournamentData } = tournament
 
     return {
       ...tournamentData,
       creator: tournament.profiles,
       prize_pool: tournament.prize_pool?.toNumber() ?? null,
-      isAdmin: tournament.created_by === user?.id,
+      isAdmin: isTournamentCreator,
+      canManageStaff: isTournamentCreator || isStructureAdmin || currentTournamentMembership?.role === "ADMIN",
+      staffMembers: tournamentMembers.map((membership) => ({
+        userId: membership.user_id,
+        name: membership.profiles.display_name || membership.profiles.username || "Membre",
+        role: membership.role,
+      })),
       registrations: tournament.tournament_registrations.map((registration) => ({
         id: registration.id,
         status: registration.status,

@@ -8,11 +8,14 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus, Clapperboard } from "lucide-react"
 import InviteTeamForm from "./invite-team-form"
+import { InviteTournamentStaffForm } from "./invite-staff-form"
 import { TournamentBracket } from "./details/tournament-bracket"
 
 interface TournamentDetailViewProps {
   tournament: TournamentDetail & {
     isAdmin?: boolean
+    canManageStaff?: boolean
+    staffMembers?: Array<{ userId: string; name: string; role: "ADMIN" | "ARBITRE" }>
     studioProjectId?: string | null
   }
 }
@@ -35,11 +38,14 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
     <div className="flex flex-1 flex-col gap-6 p-6">
       {/* Navigation de retour */}
       <div>
-        <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href="/dashboard/tournaments">
+        <Button
+          variant="ghost"
+          size="sm"
+          render={<Link href="/dashboard/tournaments" />}
+          className="mb-2"
+        >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Retour aux tournois
-          </Link>
         </Button>
       </div>
 
@@ -224,8 +230,31 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
                 </div>
               ) : (
                 <div className="text-sm text-muted-foreground py-8 text-center">
-                  Aucune équipe n'est inscrite pour le moment.
+                  Aucune équipe n&apos;est inscrite pour le moment.
                 </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Équipe d’organisation</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {tournament.canManageStaff && (
+                <InviteTournamentStaffForm tournamentId={tournament.id} />
+              )}
+              {tournament.staffMembers?.length ? (
+                <div className="space-y-2 border-t pt-4">
+                  {tournament.staffMembers.map((member) => (
+                    <div key={member.userId} className="flex items-center justify-between rounded-lg border p-3">
+                      <span className="font-medium">{member.name}</span>
+                      <Badge variant="outline">{member.role === "ADMIN" ? "Administrateur" : "Arbitre"}</Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-sm text-muted-foreground">Aucun administrateur ni arbitre supplémentaire.</p>
               )}
             </CardContent>
           </Card>

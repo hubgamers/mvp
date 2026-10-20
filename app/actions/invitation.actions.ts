@@ -123,6 +123,142 @@ export async function inviteTeamToTournament(tournamentId: string, teamId: strin
   }
 }
 
+export async function inviteTournamentStaff(
+  tournamentId: string,
+  _prevState: unknown,
+  formData: FormData,
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non authentifié." }
+
+  const email = String(formData.get("email") || "").trim().toLowerCase()
+  const role = String(formData.get("role") || "")
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    return { success: false, message: "Saisissez une adresse e-mail valide." }
+  }
+  if (role !== "ADMIN" && role !== "ARBITRE") {
+    return { success: false, message: "Le rôle sélectionné est invalide." }
+  }
+
+  try {
+    const tournament = await prisma.tournaments.findFirst({
+      where: { id: tournamentId, deleted_at: null },
+      select: { id: true, name: true, created_by: true, organizer_structure_id: true },
+    })
+    if (!tournament) {
+      return { success: false, message: "Tournoi introuvable." }
+    }
+
+    const [structureMembership, tournamentMembership] = await Promise.all([
+      tournament.organizer_structure_id
+        ? prisma.structure_members.findUnique({
+            where: {
+              structure_id_user_id: {
+                structure_id: tournament.organizer_structure_id,
+                user_id: user.id,
+              },
+            },
+            select: { role: true },
+          })
+        : Promise.resolve(null),
+      prisma.tournament_members.findUnique({
+        where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: user.id } },
+        select: { role: true },
+      }),
+    ])
+    const canManageStaff =
+      tournament.created_by === user.id ||
+      structureMembership?.role === "OWNER" ||
+      structureMembership?.role === "ADMIN" ||
+      tournamentMembership?.role === "ADMIN"
+    if (!canManageStaff) {
+      return {
+        success: false,
+        message: "Seuls le créateur et les administrateurs du tournoi peuvent inviter l’équipe d’organisation.",
+      }
+    }
+
+    const targetUser = await prisma.users.findFirst({
+      where: { email },
+      select: { id: true },
+    })
+    if (targetUser) {
+      const existingMember = await prisma.tournament_members.findUnique({
+        where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: targetUser.id } },
+        select: { user_id: true },
+      })
+      if (existingMember) {
+        return { success: false, message: "Cette personne fait déjà partie de l’équipe du tournoi." }
+      }
+    }
+
+    const pendingInvitation = await prisma.invitations.findFirst({
+      where: {
+        email,
+        target_type: "TOURNAMENT",
+        target_id: tournamentId,
+        team_id: null,
+        role: { in: ["ADMIN", "ARBITRE"] },
+        status: "PENDING",
+        expires_at: { gt: new Date() },
+      },
+      select: { id: true },
+    })
+    if (pendingInvitation) {
+      return { success: false, message: "Une invitation d’organisation est déjà en attente pour cette adresse." }
+    }
+
+    await prisma.invitations.create({
+      data: {
+        email,
+        target_type: "TOURNAMENT",
+        target_id: tournamentId,
+        invited_by: user.id,
+        role,
+        token_hash: crypto.randomUUID(),
+      },
+    })
+
+    const escapeHtml = (value: string) =>
+      value.replace(/[&<>"']/g, (character) => ({
+        "&": "&amp;",
+        "<": "&lt;",
+        ">": "&gt;",
+        '"': "&quot;",
+        "'": "&#39;",
+      })[character] ?? character)
+
+    try {
+      const { error } = await resend.emails.send({
+        from: "HubGamers <onboarding@resend.dev>",
+        to: email,
+        subject: `Invitation à rejoindre l’organisation de ${tournament.name}`,
+        html: `
+          <div style="font-family: sans-serif; padding: 20px; color: #333;">
+            <h2>Invitation à rejoindre l’équipe d’un tournoi</h2>
+            <p>Vous avez été invité à participer au tournoi <strong>${escapeHtml(tournament.name)}</strong> en tant que <strong>${role === "ADMIN" ? "administrateur" : "arbitre"}</strong>.</p>
+            <p>Connectez-vous à HubGamers et ouvrez <strong>Mes invitations</strong> pour accepter ou refuser cette proposition.</p>
+          </div>
+        `,
+      })
+      if (error) throw error
+    } catch (error) {
+      console.error("Erreur envoi e-mail invitation organisation tournoi:", error)
+      revalidatePath("/dashboard/invitations")
+      revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+      return { success: true, message: "Invitation créée, mais l’e-mail n’a pas pu être envoyé." }
+    }
+
+    revalidatePath("/dashboard/invitations")
+    revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+    return { success: true, message: "Invitation envoyée." }
+  } catch (error) {
+    console.error("Erreur inviteTournamentStaff:", error)
+    return { success: false, message: "Impossible de créer l’invitation." }
+  }
+}
+
 // 1. Récupérer les invitations pour l'utilisateur connecté
 export async function getMyInvitations() {
   const supabase = await createClient()
@@ -217,58 +353,82 @@ export async function respondToInvitation(invitationId: string, action: 'ACCEPTE
       await prisma.$transaction(async (tx) => {
         if (invite.target_type === 'TOURNAMENT') {
           if (!invite.team_id) {
-            throw new Error("Cette invitation de tournoi n'est associée à aucune équipe.")
-          }
+            if (invite.role !== "ADMIN" && invite.role !== "ARBITRE") {
+              throw new Error("Cette invitation d’organisation est invalide.")
+            }
 
-          const [team, tournament, existingRegistration] = await Promise.all([
-            tx.teams.findFirst({
+            const tournament = await tx.tournaments.findFirst({
+              where: { id: invite.target_id, deleted_at: null },
+              select: { id: true },
+            })
+            if (!tournament) {
+              throw new Error("Ce tournoi n’existe plus.")
+            }
+            await tx.tournament_members.upsert({
               where: {
-                id: invite.team_id,
-                created_by: user.id,
-                deleted_at: null,
-              },
-              select: { id: true, game: true },
-            }),
-            tx.tournaments.findFirst({
-              where: {
-                id: invite.target_id,
-                deleted_at: null,
-                status: { in: ["DRAFT", "REGISTRATION_OPEN"] },
-              },
-              select: { id: true, game: true },
-            }),
-            tx.tournament_registrations.findUnique({
-              where: {
-                tournament_id_team_id: {
-                  tournament_id: invite.target_id,
-                  team_id: invite.team_id,
+                tournament_id_user_id: {
+                  tournament_id: tournament.id,
+                  user_id: user.id,
                 },
               },
-              select: { id: true },
-            }),
-          ])
+              update: { role: invite.role },
+              create: {
+                tournament_id: tournament.id,
+                user_id: user.id,
+                role: invite.role,
+              },
+            })
+          } else {
+            const [team, tournament, existingRegistration] = await Promise.all([
+              tx.teams.findFirst({
+                where: {
+                  id: invite.team_id,
+                  created_by: user.id,
+                  deleted_at: null,
+                },
+                select: { id: true, game: true },
+              }),
+              tx.tournaments.findFirst({
+                where: {
+                  id: invite.target_id,
+                  deleted_at: null,
+                  status: { in: ["DRAFT", "REGISTRATION_OPEN"] },
+                },
+                select: { id: true, game: true },
+              }),
+              tx.tournament_registrations.findUnique({
+                where: {
+                  tournament_id_team_id: {
+                    tournament_id: invite.target_id,
+                    team_id: invite.team_id,
+                  },
+                },
+                select: { id: true },
+              }),
+            ])
 
-          if (!team) {
-            throw new Error("Seul le propriétaire de l'équipe invitée peut répondre à cette invitation.")
-          }
-          if (!tournament) {
-            throw new Error("Le tournoi n'accepte plus d'inscriptions.")
-          }
-          if (team.game.toLowerCase() !== tournament.game.toLowerCase()) {
-            throw new Error("Cette équipe ne joue pas au même jeu que le tournoi.")
-          }
-          if (existingRegistration) {
-            throw new Error("Cette équipe est déjà inscrite à ce tournoi.")
-          }
+            if (!team) {
+              throw new Error("Seul le propriétaire de l'équipe invitée peut répondre à cette invitation.")
+            }
+            if (!tournament) {
+              throw new Error("Le tournoi n'accepte plus d'inscriptions.")
+            }
+            if (team.game.toLowerCase() !== tournament.game.toLowerCase()) {
+              throw new Error("Cette équipe ne joue pas au même jeu que le tournoi.")
+            }
+            if (existingRegistration) {
+              throw new Error("Cette équipe est déjà inscrite à ce tournoi.")
+            }
 
-          await tx.tournament_registrations.create({
-            data: {
-              tournament_id: tournament.id,
-              team_id: team.id,
-              registered_by: user.id,
-              status: "APPROVED",
-            },
-          })
+            await tx.tournament_registrations.create({
+              data: {
+                tournament_id: tournament.id,
+                team_id: team.id,
+                registered_by: user.id,
+                status: "APPROVED",
+              },
+            })
+          }
         } else if (invite.target_type === 'TEAM') {
           // Ajout dans le roster de l'équipe (`team_members`)
           try {
@@ -338,6 +498,7 @@ export async function respondToInvitation(invitationId: string, action: 'ACCEPTE
     revalidatePath("/dashboard/invitations")
     if (invite.target_type === "TOURNAMENT") {
       revalidatePath(`/dashboard/tournaments/${invite.target_id}`)
+      revalidatePath("/dashboard/chats")
     }
     return { success: true, message: action === 'ACCEPTED' ? "Invitation acceptée !" : "Invitation refusée." }
   } catch (error: any) {

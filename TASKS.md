@@ -1,8 +1,5 @@
 - Vérifier les invitations des équipes aux tournois
-OK - Ajouter des fausses données dont des équipes afin de tester la génération du bracket
-OK - Ajouter config tournoi (match duration, bo time, startTime, maxTeams)
 - Créer la page publique du tournoi
-OK - Afficher un vrai arbre de tournoi
 - Pouvoir placer manuellement les equipes au premier tour de l'arbre
 - Gérer les accès a edit et aux formulaires de tournois qu'a son owner
 - Ajouter des membres pour gerer le tournoi (ADMIN, ARBITRE score uniquement)
@@ -13,7 +10,4 @@ OK - Afficher un vrai arbre de tournoi
 - Revoir les visuels en général theme shadcn a retravailler
 - Créer la page abonnement
 - Créer les produits Stripe et faire la liaison
-- Créer la page Studio
 - Créer des templates d'overlays par défaut
-- Créer la page profil de l'user
-- Corriger erreurs TS/Next
