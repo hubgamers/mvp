@@ -58,11 +58,13 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               <Calendar className="h-4 w-4" />
               Créé le {new Date(tournament.created_at).toLocaleDateString("fr-FR")}
             </span>
-            <span>
-              <Link href={`/dashboard/tournaments/${tournament.id}/edit`} className="text-primary hover:underline font-medium">
-                Modifier le tournoi
-              </Link>
-            </span>
+            {tournament.isAdmin && (
+              <span>
+                <Link href={`/dashboard/tournaments/${tournament.id}/edit`} className="text-primary hover:underline font-medium">
+                  Modifier le tournoi
+                </Link>
+              </span>
+            )}
           </div>
         </div>
       </div>
@@ -123,20 +125,23 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
         {/* TAB: PARTICIPANTS & INVITATIONS */}
         <TabsContent value="participants" className="space-y-6">
           {/* Section d'invitation / Inscription d'équipe */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-base">
-                <UserPlus className="h-4 w-4 text-primary" /> Inviter ou inscrire une équipe
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {/* Formulaire ou composant d'invitation */}
-              <InviteTeamForm
-                tournamentId={tournament.id}
-                existingRegistrations={tournament.registrations || []}
-              />
-            </CardContent>
-          </Card>
+          {tournament.isAdmin && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <UserPlus className="h-4 w-4 text-primary" /> Inviter ou inscrire une équipe
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                {/* Formulaire ou composant d'invitation */}
+                <InviteTeamForm
+                  tournamentId={tournament.id}
+                  existingRegistrations={tournament.registrations || []}
+                />
+              </CardContent>
+            </Card>
+          )}
+
 
           {/* Liste des équipes enregistrées */}
           <Card>

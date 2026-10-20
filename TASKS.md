@@ -1,0 +1,19 @@
+- Vérifier les invitations des équipes aux tournois
+OK - Ajouter des fausses données dont des équipes afin de tester la génération du bracket
+- Ajouter config tournoi (nb teams, match duration, bo time, startTime, maxTeams)
+- Créer la page publique du tournoi
+- Afficher un vrai arbre de tournoi
+- Pouvoir placer manuellement les equipes au premier tour de l'arbre
+- Gérer les accès a edit et aux formulaires de tournois qu'a son owner
+- Ajouter des membres pour gerer le tournoi (ADMIN, ARBITRE score uniquement)
+- Ajouter des chats pour chaque match et en tant qu'admin ou arbitre, on a acces a une liste de chat
+- Creer la page de match pour une equipe (pourra donner le score (validation par tiers sinon auto au bout de 5m), ecrire sur le chat ou declencher un appel ADMIN/ARBITRE)
+- Page notifications (chat a repondre sur un match, mettre son score, litige demande, match gagne/perdu, ...)
+- Historique des compétitions pour team view a corriger
+- Revoir les visuels en général theme shadcn a retravailler
+- Créer la page abonnement
+- Créer les produits Stripe et faire la liaison
+- Créer la page Studio
+- Créer des templates d'overlays par défaut
+- Créer la page profil de l'user
+- Corriger erreurs TS/Next

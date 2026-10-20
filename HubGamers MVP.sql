@@ -366,3 +366,116 @@ USING (
   invited_by = auth.uid()
   OR target_id IN (SELECT structure_id FROM structures_users WHERE user_id = auth.uid() AND role = 'ADMIN')
 );
+
+-- ==========================================
+-- SCRIPT DE SEED SUPABASE (CORRIGÉ & VALIDE) - HUBGAMERS
+-- ==========================================
+
+-- 1. INSERTION DES UTILISATEURS DE TEST
+INSERT INTO "users" ("id", "email", "avatar_url", "created_at") VALUES
+('a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'admin.esport@hubgamers.test', 'https://api.dicebear.com/7.x/bottts/svg?seed=admin', NOW() - INTERVAL '30 days'),
+('b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', 'captain.alpha@hubgamers.test', 'https://api.dicebear.com/7.x/bottts/svg?seed=alpha', NOW() - INTERVAL '25 days'),
+('c2eebc99-9c0b-4ef8-bb6d-6bb9bd380c33', 'captain.beta@hubgamers.test', 'https://api.dicebear.com/7.x/bottts/svg?seed=beta', NOW() - INTERVAL '20 days'),
+('d3eebc99-9c0b-4ef8-bb6d-6bb9bd380d44', 'player.gamma@hubgamers.test', 'https://api.dicebear.com/7.x/bottts/svg?seed=gamma', NOW() - INTERVAL '15 days'),
+('e4eebc99-9c0b-4ef8-bb6d-6bb9bd380e55', 'player.delta@hubgamers.test', 'https://api.dicebear.com/7.x/bottts/svg?seed=delta', NOW() - INTERVAL '10 days');
+
+
+-- 2. INSERTION DES STRUCTURES (ORGANISATIONS / CLUBS)
+INSERT INTO "structures" ("id", "name", "created_by", "created_at") VALUES
+('10eebc99-9c0b-4ef8-bb6d-6bb9bd380101', 'Team Vitalis Esports', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', NOW() - INTERVAL '28 days'),
+('20eebc99-9c0b-4ef8-bb6d-6bb9bd380202', 'Apex Gaming Club', 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', NOW() - INTERVAL '22 days');
+
+
+-- 3. ASSOCIATION USERS <-> STRUCTURES (structures_users)
+INSERT INTO "structures_users" ("structure_id", "user_id", "role") VALUES
+('10eebc99-9c0b-4ef8-bb6d-6bb9bd380101', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', 'ADMIN'),
+('10eebc99-9c0b-4ef8-bb6d-6bb9bd380101', 'd3eebc99-9c0b-4ef8-bb6d-6bb9bd380d44', 'USER'),
+('20eebc99-9c0b-4ef8-bb6d-6bb9bd380202', 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', 'ADMIN'),
+('20eebc99-9c0b-4ef8-bb6d-6bb9bd380202', 'e4eebc99-9c0b-4ef8-bb6d-6bb9bd380e55', 'USER');
+
+
+-- 4. CRÉATION DU TOURNOI DE 16 ÉQUIPES
+INSERT INTO "tournaments" ("id", "name", "game", "platform", "status", "created_by", "created_at") VALUES
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', 'HubGamers Master Cup 16T', 'Rainbow Six Siege', 'PC', 'ONGOING', 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11', NOW() - INTERVAL '2 days');
+
+
+-- 5. CRÉATION DES 16 ÉQUIPES DE TEST
+INSERT INTO "teams" ("id", "name", "game", "platform", "created_at") VALUES
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 'Team Vitalis', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381002', 'Apex Gaming', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381003', 'Karmine Corp', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381004', 'G2 Esports', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381005', 'Fnatic', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381006', 'Team Liquid', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381007', 'FaZe Clan', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 'Natus Vincere', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', 'DarkZero', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381010', 'SSG (SpaceStation)', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381011', 'BDS Esport', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381012', 'M80', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', 'Wolves Esports', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381014', 'Heroic', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381015', 'CAG Osaka', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381016', 'Elevate', 'Rainbow Six Siege', 'PC', NOW() - INTERVAL '3 days');
+
+
+-- 6. ASSOCIATION DES MEMBRES AUX ÉQUIPES (teams_users)
+INSERT INTO "teams_users" ("team_id", "user_id", "role", "created_at") VALUES
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 'b1eebc99-9c0b-4ef8-bb6d-6bb9bd380b22', 'CAPTAIN', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 'd3eebc99-9c0b-4ef8-bb6d-6bb9bd380d44', 'PLAYER', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381002', 'c2eebc99-9c0b-4ef8-bb6d-6bb9bd380c33', 'CAPTAIN', NOW() - INTERVAL '3 days'),
+('30eebc99-9c0b-4ef8-bb6d-6bb9bd381002', 'e4eebc99-9c0b-4ef8-bb6d-6bb9bd380e55', 'PLAYER', NOW() - INTERVAL '3 days');
+
+
+-- 7. INSCRIPTION DES 16 ÉQUIPES AU TOURNOI (tournament_registrations)
+INSERT INTO "tournament_registrations" ("tournament_id", "team_id", "status", "registered_at") VALUES
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381002', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381003', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381004', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381005', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381006', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381007', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381010', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381011', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381012', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381014', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381015', 'CHECKED_IN', NOW() - INTERVAL '2 days'),
+('40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381016', 'CHECKED_IN', NOW() - INTERVAL '2 days');
+
+
+-- 8. PARAMÈTRES D'OVERLAY (overlay_settings)
+INSERT INTO "overlay_settings" ("id", "tournament_id", "primary_color", "secondary_color", "show_logo", "custom_logo_url", "created_at") VALUES
+('70eebc99-9c0b-4ef8-bb6d-6bb9bd380701', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '#3B82F6', '#1E293B', true, 'https://api.dicebear.com/7.x/identicon/svg?seed=hubgamers-cup', NOW() - INTERVAL '2 days');
+
+
+-- 9. CRÉATION DES 15 MATCHS DE L'ARBRE (matches)
+-- ROUND 1 (Huitièmes de finale - 8 matchs)
+INSERT INTO "matches" ("id", "tournament_id", "alpha_team_id", "beta_team_id", "score_alpha", "score_beta", "winner_id", "round_number", "match_order", "status", "created_at") VALUES
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389001', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381002', 7, 4, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 1, 1, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389002', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381003', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381004', 5, 7, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381004', 1, 2, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389003', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381005', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381006', 7, 3, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381005', 1, 3, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389004', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381007', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 6, 8, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 1, 4, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389005', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381010', 7, 2, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', 1, 5, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389006', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381011', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381012', 4, 7, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381012', 1, 6, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389007', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381014', 7, 5, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', 1, 7, 'COMPLETED', NOW() - INTERVAL '24 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389008', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381015', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381016', 3, 7, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381016', 1, 8, 'COMPLETED', NOW() - INTERVAL '24 hours');
+
+-- ROUND 2 (Quarts de finale - 4 matchs)
+INSERT INTO "matches" ("id", "tournament_id", "alpha_team_id", "beta_team_id", "score_alpha", "score_beta", "winner_id", "round_number", "match_order", "status", "created_at") VALUES
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389009', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381004', 7, 5, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', 2, 1, 'COMPLETED', NOW() - INTERVAL '12 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389010', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381005', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 3, 7, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 2, 2, 'COMPLETED', NOW() - INTERVAL '12 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389011', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381012', 7, 6, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', 2, 3, 'COMPLETED', NOW() - INTERVAL '12 hours'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389012', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381016', 7, 2, '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', 2, 4, 'COMPLETED', NOW() - INTERVAL '12 hours');
+
+-- ROUND 3 (Demi-finales - 2 matchs)
+INSERT INTO "matches" ("id", "tournament_id", "alpha_team_id", "beta_team_id", "score_alpha", "score_beta", "winner_id", "round_number", "match_order", "status", "created_at") VALUES
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389013', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381001', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381008', 4, 4, NULL, 3, 1, 'LIVE', NOW() - INTERVAL '1 hour'),
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389014', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381009', '30eebc99-9c0b-4ef8-bb6d-6bb9bd381013', 0, 0, NULL, 3, 2, 'PENDING', NOW() - INTERVAL '1 hour');
+
+-- ROUND 4 (Finale - 1 match)
+INSERT INTO "matches" ("id", "tournament_id", "alpha_team_id", "beta_team_id", "score_alpha", "score_beta", "winner_id", "round_number", "match_order", "status", "created_at") VALUES
+('60eebc99-9c0b-4ef8-bb6d-6bb9bd389015', '40eebc99-9c0b-4ef8-bb6d-6bb9bd380999', NULL, NULL, 0, 0, NULL, 4, 1, 'PENDING', NOW() - INTERVAL '1 hour');
