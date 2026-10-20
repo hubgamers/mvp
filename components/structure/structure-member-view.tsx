@@ -8,7 +8,7 @@ import { Users, Trash2, ShieldCheck } from "lucide-react"
 
 interface Member {
   id: string
-  email: string
+  email: string | null
   role: string
 }
 
@@ -52,7 +52,7 @@ export function StructureMembersView({ structureId, members, isAdmin }: Structur
                   <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-4">
                     <div className="flex items-center gap-3 truncate">
                       <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className="font-medium truncate">{member.email}</span>
+                      <span className="font-medium truncate">{member.email || "Membre"}</span>
                       <Badge variant={member.role === 'ADMIN' ? 'default' : 'secondary'} className="gap-1">
                         {member.role === 'ADMIN' && <ShieldCheck className="h-3 w-3" />}
                         {member.role}
@@ -68,7 +68,7 @@ export function StructureMembersView({ structureId, members, isAdmin }: Structur
                             defaultValue={member.role}
                             className="h-8 text-xs border rounded-md px-2 bg-background"
                           >
-                            <option value="USER">Membre</option>
+                            <option value="MEMBER">Membre</option>
                             <option value="ADMIN">Administrateur</option>
                           </select>
                           <Button type="submit" variant="outline" size="sm" className="h-8 text-xs">

@@ -8,7 +8,7 @@ import { Gamepad2, Monitor, Users, Plus } from "lucide-react"
 
 interface TeamListProps {
   teams: TeamDetail[]
-  structureId: string
+  structureId?: string
 }
 
 export function TeamList({ teams, structureId }: TeamListProps) {
@@ -18,13 +18,15 @@ export function TeamList({ teams, structureId }: TeamListProps) {
         <div className="flex h-20 w-20 items-center justify-center rounded-full bg-muted">
           <Users className="h-10 w-10 text-muted-foreground" />
         </div>
-        <h3 className="mt-4 text-lg font-semibold">Aucune équipe rattachée</h3>
+        <h3 className="mt-4 text-lg font-semibold">{structureId ? "Aucune équipe rattachée" : "Aucune équipe"}</h3>
         <p className="mb-4 mt-2 text-sm text-muted-foreground">
-          Créez une équipe depuis la page principale de la structure pour commencer.
+          {structureId
+            ? "Créez une équipe depuis la page principale de la structure pour commencer."
+            : "Vous rejoindrez vos équipes dès qu'une structure vous aura invité."}
         </p>
         <Button asChild>
-          <Link href={`/dashboard/structures/${structureId}`}>
-            Retour à la structure
+          <Link href={structureId ? `/dashboard/structures/${structureId}` : "/dashboard/structures"}>
+            {structureId ? "Retour à la structure" : "Voir mes structures"}
           </Link>
         </Button>
       </div>
@@ -51,11 +53,22 @@ export function TeamList({ teams, structureId }: TeamListProps) {
               <Monitor className="h-3.5 w-3.5" />
               <span>Plateforme : {team.platform}</span>
             </div>
+            {typeof team.memberCount === "number" && (
+              <div className="flex items-center gap-2 text-xs">
+                <Users className="h-3.5 w-3.5" />
+                <span>{team.memberCount} membre{team.memberCount === 1 ? "" : "s"}</span>
+              </div>
+            )}
+            {team.structure && (
+              <div className="text-xs">Structure : {team.structure.name}</div>
+            )}
           </CardContent>
 
           <CardFooter className="pt-2">
             <Button variant="outline" className="w-full" asChild>
-              <Link href={`/dashboard/structures/${structureId}/teams/${team.id}`}>
+              <Link href={structureId
+                ? `/dashboard/structures/${structureId}/teams/${team.id}`
+                : `/dashboard/teams/${team.id}`}
                 Voir l'équipe
               </Link>
             </Button>

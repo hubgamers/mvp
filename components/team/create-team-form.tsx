@@ -5,6 +5,7 @@ import { useActionState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Plus } from "lucide-react"
 import { createTeamForStructure } from "@/app/actions/team.actions"
@@ -31,6 +32,24 @@ export function CreateTeamForm({ structureId }: CreateTeamFormProps) {
       </div>
 
       <div className="space-y-2">
+        <Label htmlFor="description">Description (optionnel)</Label>
+        <Textarea id="description" name="description" placeholder="Présentez votre équipe." rows={3} />
+      </div>
+
+      <div className="space-y-2">
+        <Label htmlFor="is_public">Visibilité</Label>
+        <Select name="is_public" defaultValue="true">
+          <SelectTrigger id="is_public">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="true">Publique</SelectItem>
+            <SelectItem value="false">Privée</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div className="space-y-2">
         <Label htmlFor="game">Jeu principal</Label>
         <Input id="game" name="game" placeholder="Ex: Rainbow Six Siege" required />
       </div>
@@ -45,6 +64,10 @@ export function CreateTeamForm({ structureId }: CreateTeamFormProps) {
             <SelectItem value="PC">PC</SelectItem>
             <SelectItem value="PLAYSTATION">PlayStation</SelectItem>
             <SelectItem value="XBOX">Xbox</SelectItem>
+            <SelectItem value="SWITCH">Nintendo Switch</SelectItem>
+            <SelectItem value="MOBILE">Mobile</SelectItem>
+            <SelectItem value="CROSS_PLATFORM">Cross-Platform</SelectItem>
+            <SelectItem value="OTHER">Autre</SelectItem>
           </SelectContent>
         </Select>
       </div>

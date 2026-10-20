@@ -1,21 +1,24 @@
 // components/tournaments/tournament-list.tsx
 import Link from "next/link"
-import { Tournament } from "@/app/actions/tournament.actions"
+import { TournamentDetail } from "@/app/actions/tournament.actions"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Gamepad2, Monitor, Calendar, Plus } from "lucide-react"
 
 interface TournamentListProps {
-  tournaments: Tournament[]
+  tournaments: TournamentDetail[]
 }
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   DRAFT: { label: "Brouillon", variant: "secondary" },
-  PUBLISHED: { label: "Publié", variant: "default" },
+  REGISTRATION_OPEN: { label: "Inscriptions ouvertes", variant: "default" },
+  REGISTRATION_CLOSED: { label: "Inscriptions closes", variant: "secondary" },
+  CHECK_IN: { label: "Check-in", variant: "secondary" },
   IN_PROGRESS: { label: "En cours", variant: "default" },
   COMPLETED: { label: "Terminé", variant: "outline" },
   CANCELLED: { label: "Annulé", variant: "destructive" },
+  ARCHIVED: { label: "Archivé", variant: "outline" },
 }
 
 export function TournamentList({ tournaments }: TournamentListProps) {
@@ -42,7 +45,7 @@ export function TournamentList({ tournaments }: TournamentListProps) {
   return (
     <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
       {tournaments.map((tournament) => {
-        const statusConfig = statusMap[tournament.status] || { label: tournament.status, variant: "outline" }
+        const statusConfig = statusMap[tournament.status] || { label: tournament.status, variant: "outline" as const }
 
         return (
           <Card key={tournament.id} className="flex flex-col justify-between hover:border-primary/50 transition-colors">

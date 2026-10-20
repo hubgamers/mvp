@@ -57,6 +57,10 @@ export function EditTournamentForm({ tournament }: EditTournamentFormProps) {
             <SelectItem value="PC">PC</SelectItem>
             <SelectItem value="PLAYSTATION">PlayStation</SelectItem>
             <SelectItem value="XBOX">Xbox</SelectItem>
+            <SelectItem value="SWITCH">Nintendo Switch</SelectItem>
+            <SelectItem value="MOBILE">Mobile</SelectItem>
+            <SelectItem value="CROSS_PLATFORM">Cross-Platform</SelectItem>
+            <SelectItem value="OTHER">Autre</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -69,8 +73,13 @@ export function EditTournamentForm({ tournament }: EditTournamentFormProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="DRAFT">Brouillon (DRAFT)</SelectItem>
-            <SelectItem value="ONGOING">En cours (ONGOING)</SelectItem>
-            <SelectItem value="COMPLETED">Terminé (COMPLETED)</SelectItem>
+            <SelectItem value="REGISTRATION_OPEN">Inscriptions ouvertes</SelectItem>
+            <SelectItem value="REGISTRATION_CLOSED">Inscriptions closes</SelectItem>
+            <SelectItem value="CHECK_IN">Check-in</SelectItem>
+            <SelectItem value="IN_PROGRESS">En cours</SelectItem>
+            <SelectItem value="COMPLETED">Terminé</SelectItem>
+            <SelectItem value="CANCELLED">Annulé</SelectItem>
+            <SelectItem value="ARCHIVED">Archivé</SelectItem>
           </SelectContent>
         </Select>
       </div>

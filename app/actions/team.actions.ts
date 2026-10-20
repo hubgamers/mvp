@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 import { Resend } from "resend"
+import { ensurePublicProfile } from "@/lib/profiles"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
 
@@ -13,12 +14,31 @@ export async function createTeamForStructure(structureId: string, prevState: any
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, message: "Non authentifié." }
 
+  const structureMembership = await prisma.structure_members.findUnique({
+    where: { structure_id_user_id: { structure_id: structureId, user_id: user.id } },
+    select: { role: true },
+  })
+  if (!structureMembership || !["OWNER", "ADMIN"].includes(structureMembership.role)) {
+    return { success: false, message: "Seuls les administrateurs peuvent ajouter une équipe à cette structure." }
+  }
+  try {
+    await ensurePublicProfile(user)
+  } catch (error) {
+    console.error("Erreur de synchronisation du profil utilisateur:", error)
+    return { success: false, message: "Erreur de synchronisation du profil utilisateur." }
+  }
+
   const name = formData.get("name") as string
   const game = formData.get("game") as string
   const platform = (formData.get("platform") as string) || "PC"
+  const description = String(formData.get("description") || "").trim()
+  const isPublic = formData.get("is_public") === "true"
 
   if (!name || !game) {
     return { success: false, message: "Le nom de l'équipe et le jeu sont obligatoires." }
+  }
+  if (!["PC", "PLAYSTATION", "XBOX", "SWITCH", "MOBILE", "CROSS_PLATFORM", "OTHER"].includes(platform)) {
+    return { success: false, message: "Plateforme invalide." }
   }
 
   // Générer un slug unique pour l'équipe
@@ -35,8 +55,10 @@ export async function createTeamForStructure(structureId: string, prevState: any
           name,
           slug,
           game,
-          platform: platform as any,
+          platform: platform as TeamDetail["platform"],
           created_by: user.id,
+          description: description || null,
+          is_public: isPublic,
         },
       })
 
@@ -63,11 +85,22 @@ export interface TeamDetail {
   game: string
   platform: 'PC' | 'PLAYSTATION' | 'XBOX' | 'SWITCH' | 'MOBILE' | 'CROSS_PLATFORM' | 'OTHER'
   created_at: Date
+  created_by?: string
+  description?: string | null
+  logo_url?: string | null
+  memberCount?: number
+  tournaments?: Array<{ id: string; name: string; status: string; starts_at: Date | null }>
   structure?: {
     id: string
     name: string
   }
-  members?: any[]
+  members?: Array<{
+    id: string
+    username: string | null
+    avatar_url: string | null
+    role: string
+  }>
+  isAdmin?: boolean
 }
 
 // Récupérer toutes les équipes liées à une structure
@@ -83,15 +116,21 @@ export async function getTeamsByStructureId(structureId: string): Promise<TeamDe
             game: true,
             platform: true,
             created_at: true,
+            _count: { select: { team_members: true } },
           },
         },
+        structures: { select: { id: true, name: true } },
       },
     })
 
     if (!data || data.length === 0) return []
 
     return data
-      .map((item) => item.teams)
+      .map((item) => item.teams ? {
+        ...item.teams,
+        structure: item.structures,
+        memberCount: item.teams._count.team_members,
+      } : null)
       .filter((team): team is NonNullable<typeof team> => team !== null) as TeamDetail[]
   } catch (error) {
     console.error("Erreur getTeamsByStructureId:", error)
@@ -105,6 +144,9 @@ export async function getTeamById(teamId: string, structureId?: string): Promise
     const team = await prisma.teams.findUnique({
       where: { id: teamId },
       include: {
+        structure_teams: {
+          include: { structures: { select: { id: true, name: true } } },
+        },
         team_members: {
           include: {
             profiles: {
@@ -116,21 +158,46 @@ export async function getTeamById(teamId: string, structureId?: string): Promise
             },
           },
         },
+        tournament_registrations: {
+          include: {
+            tournaments: {
+              select: { id: true, name: true, status: true, starts_at: true },
+            },
+          },
+        },
       },
     })
 
-    if (!team) return null
+    if (!team || team.deleted_at) return null
+    if (structureId && team.structure_teams?.structure_id !== structureId) return null
+    const { data: { user } } = await (await createClient()).auth.getUser()
+    if (
+      !team.is_public &&
+      team.created_by !== user?.id &&
+      !team.team_members.some((member) => member.user_id === user?.id)
+    ) {
+      return null
+    }
 
     const formattedMembers = team.team_members.map((m) => ({
       ...m.profiles,
       role: m.role,
     })).filter((m) => m.id)
+    const isAdmin = user
+      ? await canManageTeam(user.id, teamId, structureId ?? team.structure_teams?.structure_id)
+      : false
 
     return {
       ...team,
       created_at: team.created_at,
+      structure: team.structure_teams ? {
+        id: team.structure_teams.structures.id,
+        name: team.structure_teams.structures.name,
+      } : undefined,
       members: formattedMembers,
-    } as TeamDetail
+      tournaments: team.tournament_registrations.map((registration) => registration.tournaments),
+      isAdmin,
+    }
   } catch (error) {
     console.error("Erreur getTeamById:", error)
     return null
@@ -141,12 +208,18 @@ export async function addMemberToTeam(teamId: string, structureId: string, prevS
   const supabase = await createClient()
   const { data: { user: currentUser } } = await supabase.auth.getUser()
   if (!currentUser) return { success: false, message: "Non authentifié." }
+  if (!(await canManageTeam(currentUser.id, teamId, structureId))) {
+    return { success: false, message: "Action non autorisée. Vous devez gérer cette équipe." }
+  }
 
   const email = (formData.get("email") as string)?.trim().toLowerCase()
   const role = (formData.get("role") as string) || "PLAYER"
 
   if (!email) {
     return { success: false, message: "L'email du membre est obligatoire." }
+  }
+  if (!["PLAYER", "CAPTAIN", "MANAGER"].includes(role)) {
+    return { success: false, message: "Rôle d'équipe invalide." }
   }
 
   try {
@@ -220,7 +293,9 @@ export async function addMemberToTeam(teamId: string, structureId: string, prevS
       `,
     })
 
-    revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    if (structureId) revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    revalidatePath(`/dashboard/teams/${teamId}`)
+    revalidatePath("/dashboard/teams")
     return { success: true, message: "Invitation envoyée avec succès !" }
   } catch (error: any) {
     console.error("Erreur addMemberToTeam:", error)
@@ -229,9 +304,18 @@ export async function addMemberToTeam(teamId: string, structureId: string, prevS
 }
 
 // Fonction utilitaire interne pour vérifier si l'utilisateur a les droits de gestion sur l'équipe
-async function canManageTeam(userId: string, teamId: string, structureId: string) {
+async function canManageTeam(userId: string, teamId: string, structureId?: string) {
+  const team = await prisma.teams.findUnique({
+    where: { id: teamId },
+    select: { created_by: true, structure_teams: { select: { structure_id: true } } },
+  })
+  if (!team || (structureId && team.structure_teams?.structure_id !== structureId)) {
+    return false
+  }
+  if (team.created_by === userId) return true
+
   // 1. Vérifier si l'utilisateur est ADMIN ou OWNER de la structure
-  const structUser = await prisma.structure_members.findUnique({
+  const structUser = structureId ? await prisma.structure_members.findUnique({
     where: {
       structure_id_user_id: {
         structure_id: structureId,
@@ -239,7 +323,7 @@ async function canManageTeam(userId: string, teamId: string, structureId: string
       },
     },
     select: { role: true },
-  })
+  }) : null
 
   if (structUser && (structUser.role === 'ADMIN' || structUser.role === 'OWNER')) {
     return true
@@ -284,7 +368,9 @@ export async function removeMemberFromTeam(teamId: string, structureId: string, 
       },
     })
 
-    revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    if (structureId) revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    revalidatePath(`/dashboard/teams/${teamId}`)
+    revalidatePath("/dashboard/teams")
     return { success: true, message: "Membre retiré de l'équipe avec succès." }
   } catch (error: any) {
     return { success: false, message: error.message }
@@ -304,6 +390,10 @@ export async function updateTeamMemberRole(teamId: string, structureId: string, 
     return { success: false, message: "Action non autorisée." }
   }
 
+  if (!["PLAYER", "CAPTAIN", "MANAGER"].includes(String(newRole))) {
+    return { success: false, message: "Rôle d'équipe invalide." }
+  }
+
   try {
     await prisma.team_members.update({
       where: {
@@ -315,7 +405,9 @@ export async function updateTeamMemberRole(teamId: string, structureId: string, 
       data: { role: newRole },
     })
 
-    revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    if (structureId) revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
+    revalidatePath(`/dashboard/teams/${teamId}`)
+    revalidatePath("/dashboard/teams")
     return { success: true, message: "Rôle mis à jour avec succès." }
   } catch (error: any) {
     return { success: false, message: error.message }
@@ -343,6 +435,8 @@ export async function searchTeamsForTournament(
     // 1. Rechercher les équipes par nom et récupérer leur structure associée
     const teamsByName = await prisma.teams.findMany({
       where: {
+        is_public: true,
+        deleted_at: null,
         name: {
           contains: cleanQuery,
           mode: 'insensitive',
@@ -366,6 +460,7 @@ export async function searchTeamsForTournament(
     // 2. Rechercher par nom de structure
     const structuresByName = await prisma.structures.findMany({
       where: {
+        deleted_at: null,
         name: {
           contains: cleanQuery,
           mode: 'insensitive',
@@ -374,7 +469,7 @@ export async function searchTeamsForTournament(
       include: {
         structure_teams: {
           include: {
-            teams: true,
+            teams: { where: { is_public: true, deleted_at: null } },
           },
         },
       },
@@ -421,6 +516,50 @@ export async function searchTeamsForTournament(
     return Array.from(resultMap.values())
   } catch (error) {
     console.error("Erreur searchTeamsForTournament:", error)
+    return []
+  }
+}
+
+export async function getMyTeams(): Promise<TeamDetail[]> {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  try {
+    const teams = await prisma.teams.findMany({
+      where: {
+        deleted_at: null,
+        OR: [
+          { created_by: user.id },
+          { team_members: { some: { user_id: user.id } } },
+        ],
+      },
+      include: {
+        structure_teams: {
+          include: { structures: { select: { id: true, name: true } } },
+        },
+        _count: { select: { team_members: true } },
+      },
+      orderBy: { created_at: "desc" },
+    })
+
+    return teams.map((team) => ({
+      id: team.id,
+      name: team.name,
+      game: team.game,
+      platform: team.platform,
+      created_at: team.created_at,
+      created_by: team.created_by,
+      description: team.description,
+      logo_url: team.logo_url,
+      memberCount: team._count.team_members,
+      structure: team.structure_teams ? {
+        id: team.structure_teams.structures.id,
+        name: team.structure_teams.structures.name,
+      } : undefined,
+    }))
+  } catch (error) {
+    console.error("Erreur getMyTeams:", error)
     return []
   }
 }

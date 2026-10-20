@@ -9,18 +9,19 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ArrowLeft, Gamepad2, Monitor, Calendar, Users, Trophy, Trash2 } from "lucide-react"
 
 interface TeamDetailViewProps {
-  team: TeamDetail & { members?: Array<{ id: string; email: string; role: string }> }
+  team: TeamDetail
   structureId: string
+  standalone?: boolean
 }
 
-export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
+export function TeamDetailView({ team, structureId, standalone = false }: TeamDetailViewProps) {
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
       <div>
         <Button variant="ghost" size="sm" asChild className="mb-2">
-          <Link href={`/dashboard/structures/${structureId}/teams`}>
+          <Link href={standalone ? "/dashboard/teams" : `/dashboard/structures/${structureId}/teams`}>
             <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour aux équipes
+            Retour aux {standalone ? "équipes" : "équipes de la structure"}
           </Link>
         </Button>
       </div>
@@ -43,6 +44,8 @@ export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
               Créée le {new Date(team.created_at).toLocaleDateString("fr-FR")}
             </span>
           </div>
+          {team.structure && <p className="text-sm text-muted-foreground">Structure : {team.structure.name}</p>}
+          {team.description && <p className="max-w-2xl text-sm text-muted-foreground">{team.description}</p>}
         </div>
       </div>
 
@@ -58,14 +61,14 @@ export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
         </TabsList>
 
         <TabsContent value="roster" className="space-y-6">
-          <Card>
+          {team.isAdmin && <Card>
             <CardHeader>
               <CardTitle>Ajouter un membre au roster</CardTitle>
             </CardHeader>
             <CardContent>
               <AddMemberForm teamId={team.id} structureId={structureId} />
             </CardContent>
-          </Card>
+          </Card>}
 
           <Card>
             <CardHeader>
@@ -85,13 +88,13 @@ export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
                       <div key={member.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-3 border rounded-lg gap-4">
                         <div className="flex items-center gap-3 truncate">
                           <Users className="h-4 w-4 text-muted-foreground shrink-0" />
-                          <span className="font-medium truncate">{member.email}</span>
+                          <span className="font-medium truncate">{member.username || "Membre"}</span>
                           <Badge variant={member.role === 'CAPTAIN' ? 'default' : 'secondary'}>
                             {member.role}
                           </Badge>
                         </div>
 
-                        <div className="flex items-center gap-2">
+                        {team.isAdmin && <div className="flex items-center gap-2">
                           {/* Formulaire de modification rapide du rôle */}
                           <form action={updateRoleAction} className="flex items-center gap-2">
                             <select
@@ -137,9 +140,29 @@ export function TeamDetailView({ team, structureId }: TeamDetailViewProps) {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-muted-foreground py-8 text-center">
-                Cette équipe n'est actuellement inscrite à aucun tournoi.
-              </div>
+              {team.tournaments?.length ? (
+                <div className="space-y-3">
+                  {team.tournaments.map((tournament) => (
+                    <Link
+                      key={tournament.id}
+                      href={`/dashboard/tournaments/${tournament.id}`}
+                      className="flex flex-col justify-between gap-2 rounded-lg border p-3 transition-colors hover:bg-muted/50 sm:flex-row sm:items-center"
+                    >
+                      <span className="font-medium">{tournament.name}</span>
+                      <span className="text-sm text-muted-foreground">
+                        {tournament.status.replaceAll("_", " ")}
+                        {tournament.starts_at
+                          ? ` · ${new Date(tournament.starts_at).toLocaleDateString("fr-FR")}`
+                          : ""}
+                      </span>
+                    </Link>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-8 text-center text-sm text-muted-foreground">
+                  Cette équipe n'est actuellement inscrite à aucun tournoi.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

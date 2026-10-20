@@ -15,7 +15,7 @@ export default async function EditTournamentPage({ params }: PageProps) {
   const { tournamentId } = await params
   const tournament = await getTournamentById(tournamentId)
 
-  if (!tournament) {
+  if (!tournament || !tournament.isAdmin) {
     notFound()
   }
 

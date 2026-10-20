@@ -7,8 +7,47 @@ import { redirect } from "next/navigation"
 import { getCurrentUserWithProfile } from "./auth.actions"
 import { Resend } from "resend"
 import { createClient } from "@/lib/supabase/server" // Gardé uniquement pour récupérer l'utilisateur auth Supabase si besoin
+import { ensurePublicProfile } from "@/lib/profiles"
 
 const resend = new Resend(process.env.RESEND_API_KEY)
+
+function isValidHttpUrl(value: string) {
+  if (!value) return true
+  try {
+    const url = new URL(value)
+    return url.protocol === "http:" || url.protocol === "https:"
+  } catch {
+    return false
+  }
+}
+
+function isStructureRole(value: string): value is "OWNER" | "ADMIN" | "MEMBER" {
+  return value === "OWNER" || value === "ADMIN" || value === "MEMBER"
+}
+
+export interface Structure {
+  id: string
+  name: string
+  description?: string | null
+  logo_url?: string | null
+  banner_url?: string | null
+  website_url?: string | null
+  is_public?: boolean
+  _count?: { structure_members: number; structure_teams: number }
+  created_at: Date
+  creator?: {
+    username: string | null
+    avatar_url: string | null
+  } | null
+  isAdmin?: boolean
+  members?: Array<{ id: string; email: string | null; role: string }>
+  teams?: Array<{
+    id: string
+    name: string
+    game: string
+    platform: string
+  }>
+}
 
 export async function getStructures() {
   const supabase = await createClient()
@@ -20,7 +59,9 @@ export async function getStructures() {
   try {
     // 2. Récupérer toutes les structures avec le profil créateur via Prisma
     const structures = await prisma.structures.findMany({
+      where: { is_public: true, deleted_at: null },
       include: {
+        _count: { select: { structure_members: true, structure_teams: true } },
         profiles: {
           select: {
             id: true,
@@ -55,7 +96,10 @@ export async function getStructures() {
     // 4. Injecter `creator` (pour correspondre au format attendu) et `isAdmin`
     return structures.map((structure) => ({
       ...structure,
-      creator: structure.profiles,
+      creator: {
+        username: structure.profiles.username,
+        avatar_url: structure.profiles.avatar_url,
+      },
       isAdmin: adminStructureIds.has(structure.id),
     }))
   } catch (error) {
@@ -88,12 +132,14 @@ export async function getMyStructures() {
     // 2. Récupérer les structures créées ou dont l'utilisateur est membre
     const data = await prisma.structures.findMany({
       where: {
+        deleted_at: null,
         OR: [
           { created_by: userId },
           ...(memberStructureIds.length > 0 ? [{ id: { in: memberStructureIds } }] : []),
         ],
       },
       include: {
+        _count: { select: { structure_members: true, structure_teams: true } },
         profiles: {
           select: {
             id: true,
@@ -110,7 +156,10 @@ export async function getMyStructures() {
     // 3. Mapper les données
     return data.map((structure) => ({
       ...structure,
-      creator: structure.profiles,
+      creator: {
+        username: structure.profiles.username,
+        avatar_url: structure.profiles.avatar_url,
+      },
       isAdmin: adminStructureIds.has(structure.id) || structure.created_by === userId,
     }))
   } catch (error) {
@@ -158,6 +207,13 @@ export async function getStructureById(id: string) {
     })
 
     if (!structure) return null
+    if (
+      !structure.is_public &&
+      structure.created_by !== currentUser.id &&
+      !structure.structure_members.some((member) => member.user_id === currentUser.id)
+    ) {
+      return null
+    }
 
     // 2. Déterminer si l'utilisateur courant est ADMIN ou OWNER
     const currentUserMembership = structure.structure_members.find(
@@ -167,9 +223,11 @@ export async function getStructureById(id: string) {
 
     // 3. Formater proprement les membres
     const formattedMembers = structure.structure_members.map((m) => ({
-      ...m.profiles,
+      id: m.profiles.id,
+      email: m.profiles.username,
+      avatar_url: m.profiles.avatar_url,
       role: m.role,
-    })).filter((m) => m.id)
+    }))
 
     return {
       ...structure,
@@ -189,10 +247,24 @@ export async function createStructure(prevState: any, formData: FormData) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, message: "Non authentifié." }
+  try {
+    await ensurePublicProfile(user)
+  } catch (error) {
+    console.error("Erreur de synchronisation du profil utilisateur:", error)
+    return { success: false, message: "Erreur de synchronisation du profil utilisateur." }
+  }
 
   const name = formData.get("name") as string
+  const description = String(formData.get("description") || "").trim()
+  const logoUrl = String(formData.get("logo_url") || "").trim()
+  const bannerUrl = String(formData.get("banner_url") || "").trim()
+  const websiteUrl = String(formData.get("website_url") || "").trim()
+  const isPublic = formData.get("is_public") === "true"
   if (!name) {
     return { success: false, message: "Le nom de la structure est obligatoire." }
+  }
+  if (![logoUrl, bannerUrl, websiteUrl].every(isValidHttpUrl)) {
+    return { success: false, message: "Les liens doivent être des URL valides en HTTP ou HTTPS." }
   }
 
   // Générer un slug simple basé sur le nom
@@ -201,6 +273,7 @@ export async function createStructure(prevState: any, formData: FormData) {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/(^-|-$)+/g, "") + "-" + Date.now().toString().slice(-4)
 
+  let structureId: string
   try {
     // 1. Créer la structure et ajouter l'administrateur en une seule transaction
     const structure = await prisma.$transaction(async (tx) => {
@@ -209,6 +282,11 @@ export async function createStructure(prevState: any, formData: FormData) {
           name,
           slug,
           created_by: user.id,
+          description: description || null,
+          logo_url: logoUrl || null,
+          banner_url: bannerUrl || null,
+          website_url: websiteUrl || null,
+          is_public: isPublic,
         },
       })
 
@@ -224,34 +302,55 @@ export async function createStructure(prevState: any, formData: FormData) {
       return newStruct
     })
 
-    revalidatePath("/dashboard/structures")
-    redirect(`/dashboard/structures/${structure.id}`)
+    structureId = structure.id
   } catch (error: any) {
     console.error("Erreur création structure:", error)
     return { success: false, message: error?.message || "Erreur lors de la création de la structure." }
   }
+  revalidatePath("/dashboard/structures")
+  redirect(`/dashboard/structures/${structureId}`)
 }
 
 // Modifier une structure
 export async function updateStructure(structureId: string, prevState: any, formData: FormData) {
-  const name = formData.get("name") as string
+  const name = String(formData.get("name") || "").trim()
+  const description = String(formData.get("description") || "").trim()
+  const logoUrl = String(formData.get("logo_url") || "").trim()
+  const bannerUrl = String(formData.get("banner_url") || "").trim()
+  const websiteUrl = String(formData.get("website_url") || "").trim()
+  const isPublic = formData.get("is_public") === "true"
 
   if (!name) {
     return { success: false, message: "Le nom de la structure est obligatoire." }
   }
+  if (![logoUrl, bannerUrl, websiteUrl].every(isValidHttpUrl)) {
+    return { success: false, message: "Les liens doivent être des URL valides en HTTP ou HTTPS." }
+  }
 
   try {
+    const { data: { user } } = await (await createClient()).auth.getUser()
+    if (!user || !(await isStructureAdmin(user.id, structureId))) {
+      return { success: false, message: "Action non autorisée." }
+    }
+
     await prisma.structures.update({
       where: { id: structureId },
-      data: { name },
+      data: {
+        name,
+        description: description || null,
+        logo_url: logoUrl || null,
+        banner_url: bannerUrl || null,
+        website_url: websiteUrl || null,
+        is_public: isPublic,
+      },
     })
 
     revalidatePath(`/dashboard/structures/${structureId}`)
     revalidatePath("/dashboard/structures")
-    redirect(`/dashboard/structures/${structureId}`)
   } catch (error: any) {
     return { success: false, message: error.message }
   }
+  redirect(`/dashboard/structures/${structureId}`)
 }
 
 // Fonction utilitaire pour vérifier si l'utilisateur est ADMIN ou OWNER de la structure
@@ -401,7 +500,7 @@ export async function removeMemberFromStructure(structureId: string, userIdToRem
 // 3. Modifier le rôle d'un membre dans la structure
 export async function updateStructureMemberRole(structureId: string, userIdToUpdate: string, formData: FormData) {
   const supabase = await createClient()
-  const newRole = formData.get("role") as any
+  const newRole = formData.get("role") as string
 
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, message: "Non authentifié." }
@@ -409,6 +508,10 @@ export async function updateStructureMemberRole(structureId: string, userIdToUpd
   const isAdmin = await isStructureAdmin(user.id, structureId)
   if (!isAdmin) {
     return { success: false, message: "Action non autorisée." }
+  }
+
+  if (!isStructureRole(newRole)) {
+    return { success: false, message: "Rôle de structure invalide." }
   }
 
   try {
@@ -447,7 +550,7 @@ export async function getStructureMembers(structureId: string) {
 
     return data.map((item) => ({
       id: item.profiles?.id,
-      email: item.profiles?.username, // ou autre champ du profil si l'email vient de la table auth
+      email: item.profiles?.username,
       avatar_url: item.profiles?.avatar_url,
       role: item.role,
     }))

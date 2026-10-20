@@ -6,23 +6,29 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus } from "lucide-react"
-import { InviteTeamForm } from "./invite-team-form"
+import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus, Clapperboard } from "lucide-react"
+import InviteTeamForm from "./invite-team-form"
 
 interface TournamentDetailViewProps {
   tournament: TournamentDetail & {
-    isAdmin?: boolean // Si tu gères les droits d'administration du tournoi
+    isAdmin?: boolean
+    studioProjectId?: string | null
   }
 }
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
   DRAFT: { label: "Brouillon", variant: "secondary" },
-  ONGOING: { label: "En cours", variant: "default" },
+  REGISTRATION_OPEN: { label: "Inscriptions ouvertes", variant: "default" },
+  REGISTRATION_CLOSED: { label: "Inscriptions closes", variant: "secondary" },
+  CHECK_IN: { label: "Check-in", variant: "secondary" },
+  IN_PROGRESS: { label: "En cours", variant: "default" },
   COMPLETED: { label: "Terminé", variant: "outline" },
+  CANCELLED: { label: "Annulé", variant: "destructive" },
+  ARCHIVED: { label: "Archivé", variant: "outline" },
 }
 
 export function TournamentDetailView({ tournament }: TournamentDetailViewProps) {
-  const statusConfig = statusMap[tournament.status] || { label: tournament.status, variant: "outline" }
+  const statusConfig = statusMap[tournament.status] || { label: tournament.status, variant: "outline" as const }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6">
@@ -59,11 +65,20 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               Créé le {new Date(tournament.created_at).toLocaleDateString("fr-FR")}
             </span>
             {tournament.isAdmin && (
-              <span>
+              <div className="flex items-center gap-4">
                 <Link href={`/dashboard/tournaments/${tournament.id}/edit`} className="text-primary hover:underline font-medium">
                   Modifier le tournoi
                 </Link>
-              </span>
+                <Link
+                  href={tournament.studioProjectId
+                    ? `/dashboard/studio/${tournament.studioProjectId}`
+                    : `/dashboard/studio/new?tournamentId=${tournament.id}`}
+                  className="inline-flex items-center gap-1 text-primary hover:underline font-medium"
+                >
+                  <Clapperboard className="h-4 w-4" />
+                  {tournament.studioProjectId ? "Ouvrir le Studio" : "Créer le Studio"}
+                </Link>
+              </div>
             )}
           </div>
         </div>
@@ -91,11 +106,51 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
                 <CardTitle>Informations générales</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4 text-sm text-muted-foreground">
-                <p>Bienvenue sur la page officielle du tournoi <strong>{tournament.name}</strong> sur le jeu <strong>{tournament.game}</strong>.</p>
+                <p>{tournament.description || `Tournoi ${tournament.name} sur ${tournament.game}.`}</p>
                 <div className="flex items-center gap-2 pt-2">
                   <span className="font-semibold text-foreground">Créé par :</span>
-                  <span>{tournament.creator?.email || "Organisateur inconnu"}</span>
+                  <span>{tournament.creator?.username || "Organisateur inconnu"}</span>
                 </div>
+                <div className="grid gap-3 border-t pt-4 sm:grid-cols-2">
+                  <p>
+                    <span className="font-semibold text-foreground">Équipes : </span>
+                    {tournament.min_teams ?? 2}
+                    {tournament.max_teams ? ` à ${tournament.max_teams}` : " minimum"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">Format : </span>
+                    {tournament.team_size_min ?? "—"}
+                    {tournament.team_size_max ? `–${tournament.team_size_max}` : ""} joueurs par équipe
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">Récompense : </span>
+                    {tournament.prize_pool
+                      ? `${Number(tournament.prize_pool).toLocaleString("fr-FR")} ${tournament.prize_currency ?? "EUR"}`
+                      : "Aucune"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">Inscription : </span>
+                    {tournament.is_free ? "Gratuite" : "Payante"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-foreground">Début : </span>
+                    {tournament.starts_at
+                      ? new Date(tournament.starts_at).toLocaleString("fr-FR", { timeZone: tournament.timezone ?? "UTC" })
+                      : "À définir"}
+                  </p>
+                  {tournament.ends_at && (
+                    <p>
+                      <span className="font-semibold text-foreground">Fin : </span>
+                      {new Date(tournament.ends_at).toLocaleString("fr-FR", { timeZone: tournament.timezone ?? "UTC" })}
+                    </p>
+                  )}
+                </div>
+                {tournament.rules && (
+                  <div className="border-t pt-4">
+                    <p className="mb-1 font-semibold text-foreground">Règlement</p>
+                    <p className="whitespace-pre-wrap">{tournament.rules}</p>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
@@ -160,7 +215,7 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
                           <p className="text-xs text-muted-foreground">Jeu : {reg.team.game} ({reg.team.platform})</p>
                         </div>
                       </div>
-                      <Badge variant={reg.status === 'ACCEPTED' ? 'default' : 'secondary'}>
+                      <Badge variant={reg.status === 'APPROVED' || reg.status === 'CHECKED_IN' ? 'default' : 'secondary'}>
                         {reg.status}
                       </Badge>
                     </div>
@@ -182,9 +237,23 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               <CardTitle>Arbre de la compétition (Matchs)</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-sm text-muted-foreground py-12 text-center">
-                La gestion des matchs et de l'arbre s'affichera ici dès le lancement du tournoi.
-              </div>
+              {tournament.tournament_stages?.length ? (
+                <ol className="space-y-3">
+                  {tournament.tournament_stages.map((stage) => (
+                    <li key={stage.id} className="flex items-center justify-between gap-4 rounded-lg border p-3">
+                      <div>
+                        <p className="font-medium">{stage.name}</p>
+                        <p className="text-xs text-muted-foreground">{stage.stage_type.replaceAll("_", " ")}</p>
+                      </div>
+                      <Badge variant="outline">Étape {stage.stage_order}</Badge>
+                    </li>
+                  ))}
+                </ol>
+              ) : (
+                <div className="py-12 text-center text-sm text-muted-foreground">
+                  Aucun format de compétition n’a encore été configuré.
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>

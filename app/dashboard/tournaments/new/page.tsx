@@ -1,8 +1,11 @@
 // app/dashboard/tournaments/new/page.tsx
 import { CreateTournamentForm } from "@/components/tournament/create-tournament-form"
 import { Separator } from "@/components/ui/separator"
+import { getMyStructures } from "@/app/actions/structure.actions"
 
-export default function NewTournamentPage() {
+export default async function NewTournamentPage() {
+  const structures = await getMyStructures()
+
   return (
     <div className="flex flex-1 flex-col gap-4 p-6">
       <div>
@@ -12,7 +15,11 @@ export default function NewTournamentPage() {
         </p>
       </div>
       <Separator />
-      <CreateTournamentForm />
+      <CreateTournamentForm
+        structures={structures
+          .filter((structure) => structure.isAdmin)
+          .map(({ id, name }) => ({ id, name }))}
+      />
     </div>
   )
 }

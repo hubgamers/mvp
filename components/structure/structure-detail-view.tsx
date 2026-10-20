@@ -4,15 +4,12 @@ import { Structure } from "@/app/actions/structure.actions"
 import { Button } from "@/components/ui/button"
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ArrowLeft, Shield, Calendar, Edit, Gamepad2, Monitor } from "lucide-react"
+import { ArrowLeft, Shield, Calendar, Edit, Gamepad2, Monitor, ExternalLink } from "lucide-react"
 import { CreateTeamForm } from "../team/create-team-form"
 import { StructureMembersView } from "./structure-member-view"
 
 interface StructureDetailViewProps {
-  structure: Structure & {
-    members?: Array<{ id: string; email: string; role: string }>
-    isAdmin?: boolean
-  }
+  structure: Structure
 }
 
 export function StructureDetailView({ structure }: StructureDetailViewProps) {
@@ -37,7 +34,7 @@ export function StructureDetailView({ structure }: StructureDetailViewProps) {
           <div className="flex flex-wrap items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5 font-medium text-foreground">
               <Shield className="h-4 w-4 text-primary" />
-              Propriétaire : {structure.creator?.email || "Inconnu"}
+              Propriétaire : {structure.creator?.username || "Inconnu"}
             </span>
             <span>•</span>
             <span className="flex items-center gap-1.5">
@@ -67,7 +64,7 @@ export function StructureDetailView({ structure }: StructureDetailViewProps) {
           <TabsTrigger value="members" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-3 pt-2">
             Membres ({structure.members?.length || 0})
           </TabsTrigger>
-          <TabsTrigger value="teams" className="rounded-none border-b-2 border-transparent data-[state=active]:border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-3 pt-2">
+          <TabsTrigger value="teams" className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-2 pb-3 pt-2">
             Équipes affiliées ({structure.teams?.length || 0})
           </TabsTrigger>
         </TabsList>
@@ -78,7 +75,20 @@ export function StructureDetailView({ structure }: StructureDetailViewProps) {
               <CardTitle>Informations de la structure</CardTitle>
             </CardHeader>
             <CardContent className="text-sm text-muted-foreground">
-              Gestion centralisée de la structure {structure.name}. Retrouvez ici la liste des membres et des équipes rattachées.
+              <div className="space-y-4">
+                <p>{structure.description || `Gestion centralisée de la structure ${structure.name}.`}</p>
+                {structure.website_url && (
+                  <a
+                    href={structure.website_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-2 font-medium text-primary hover:underline"
+                  >
+                    Site officiel <ExternalLink className="size-4" />
+                  </a>
+                )}
+                <p>{structure.is_public ? "Structure publique" : "Structure privée"}</p>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>

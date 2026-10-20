@@ -1,6 +1,7 @@
 // app/dashboard/tournaments/[id]/page.tsx
 import { notFound } from "next/navigation"
 import { getTournamentById } from "@/app/actions/tournament.actions"
+import { getStudioProjectByTournamentId } from "@/app/actions/studio.actions"
 import { TournamentDetailView } from "@/components/tournament/tournament-detail-view"
 
 interface PageProps {
@@ -15,5 +16,7 @@ export default async function TournamentDetailPage({ params }: PageProps) {
     notFound()
   }
 
-  return <TournamentDetailView tournament={tournament} />
+  const studioProject = await getStudioProjectByTournamentId(tournament.id)
+
+  return <TournamentDetailView tournament={{ ...tournament, studioProjectId: studioProject?.id ?? null }} />
 }

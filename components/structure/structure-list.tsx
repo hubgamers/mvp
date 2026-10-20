@@ -10,7 +10,6 @@ interface StructureListProps {
 }
 
 export function StructureList({ structures }: StructureListProps) {
-  console.log(structures)
   if (structures.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center rounded-lg border border-dashed p-12 text-center animate-in fade-in-50">
@@ -44,11 +43,19 @@ export function StructureList({ structures }: StructureListProps) {
           <CardContent className="space-y-2 text-sm text-muted-foreground">
             <div className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary" />
-              <span>Créateur : {structure.creator?.email || "Inconnu"}</span>
+              <span>Créateur : {structure.creator?.username || "Inconnu"}</span>
             </div>
             <div className="flex items-center gap-2 text-xs">
               <Calendar className="h-3.5 w-3.5" />
               <span>Créée le {new Date(structure.created_at).toLocaleDateString("fr-FR")}</span>
+            </div>
+            <div className="flex items-center gap-4 text-xs">
+              {typeof structure._count?.structure_members === "number" && (
+                <span>{structure._count.structure_members} membre{structure._count.structure_members === 1 ? "" : "s"}</span>
+              )}
+              {typeof structure._count?.structure_teams === "number" && (
+                <span>{structure._count.structure_teams} équipe{structure._count.structure_teams === 1 ? "" : "s"}</span>
+              )}
             </div>
           </CardContent>
 

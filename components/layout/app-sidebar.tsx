@@ -11,7 +11,7 @@ import {
   SidebarHeader,
   SidebarRail,
 } from "@/components/ui/sidebar"
-import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, TerminalSquareIcon, BotIcon, BookOpenIcon, Settings2Icon, FrameIcon, PieChartIcon, MapIcon, LayoutDashboardIcon, TrophyIcon, MailCheckIcon } from "lucide-react"
+import { GalleryVerticalEndIcon, AudioLinesIcon, TerminalIcon, BotIcon, BookOpenIcon, FrameIcon, PieChartIcon, MapIcon, TrophyIcon, MailCheckIcon, UsersRoundIcon } from "lucide-react"
 
 const data = {
   teams: [
@@ -42,8 +42,16 @@ const data = {
       ],
     },
     {
+      title: "Équipes",
+      url: "/dashboard/teams",
+      icon: <UsersRoundIcon />,
+      items: [
+        { title: "Mes équipes", url: "/dashboard/teams" },
+      ],
+    },
+    {
       title: "Studio",
-      url: "#",
+      url: "/dashboard/studio",
       icon: <BookOpenIcon />,
       items: [
         { title: "Explorer", url: "/dashboard/studio/explore" },
