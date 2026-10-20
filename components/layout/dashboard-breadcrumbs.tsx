@@ -22,6 +22,8 @@ const labels: Record<string, string> = {
   new: "Nouveau",
   edit: "Modifier",
   invitations: "Invitations",
+  billing: "Facturation",
+  user: "Mon profil",
 }
 
 export function DashboardBreadcrumbs() {

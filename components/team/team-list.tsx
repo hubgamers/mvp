@@ -68,7 +68,7 @@ export function TeamList({ teams, structureId }: TeamListProps) {
             <Button variant="outline" className="w-full" asChild>
               <Link href={structureId
                 ? `/dashboard/structures/${structureId}/teams/${team.id}`
-                : `/dashboard/teams/${team.id}`}
+                : `/dashboard/teams/${team.id}`}>
                 Voir l'équipe
               </Link>
             </Button>
