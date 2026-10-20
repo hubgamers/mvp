@@ -8,6 +8,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
 import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus, Clapperboard } from "lucide-react"
 import InviteTeamForm from "./invite-team-form"
+import { TournamentBracket } from "./details/tournament-bracket"
 
 interface TournamentDetailViewProps {
   tournament: TournamentDetail & {
@@ -232,30 +233,7 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
 
         {/* TAB: BRACKET */}
         <TabsContent value="bracket">
-          <Card>
-            <CardHeader>
-              <CardTitle>Arbre de la compétition (Matchs)</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {tournament.tournament_stages?.length ? (
-                <ol className="space-y-3">
-                  {tournament.tournament_stages.map((stage) => (
-                    <li key={stage.id} className="flex items-center justify-between gap-4 rounded-lg border p-3">
-                      <div>
-                        <p className="font-medium">{stage.name}</p>
-                        <p className="text-xs text-muted-foreground">{stage.stage_type.replaceAll("_", " ")}</p>
-                      </div>
-                      <Badge variant="outline">Étape {stage.stage_order}</Badge>
-                    </li>
-                  ))}
-                </ol>
-              ) : (
-                <div className="py-12 text-center text-sm text-muted-foreground">
-                  Aucun format de compétition n’a encore été configuré.
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TournamentBracket initialMatches={tournament.bracketMatches} />
         </TabsContent>
       </Tabs>
     </div>

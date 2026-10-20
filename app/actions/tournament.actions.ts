@@ -37,6 +37,24 @@ export interface TournamentDetail {
     team: { id: string; name: string; game: string; logo_url: string | null; platform: string }
   }>
   tournament_stages?: Array<{ id: string; name: string; stage_order: number; stage_type: string }>
+  bracketMatches?: TournamentBracketMatch[]
+}
+
+export interface TournamentBracketMatch {
+  id: string
+  alpha_team_id: string | null
+  beta_team_id: string | null
+  score_alpha: number
+  score_beta: number
+  winner_id: string | null
+  round_number: number
+  match_order: number
+  status: "PENDING" | "READY" | "LIVE" | "AWAITING_RESULT_CONFIRMATION" | "COMPLETED" | "DISPUTED" | "CANCELLED" | "BYE"
+  stage_id: string
+  stage_name: string
+  stage_order: number
+  alpha_team?: { id: string; name: string }
+  beta_team?: { id: string; name: string }
 }
 
 // Récupérer la liste des tournois publics
@@ -112,6 +130,31 @@ export async function getTournamentById(idOrSlug: string) {
         tournament_stages: {
           orderBy: { stage_order: 'asc' },
         },
+        matches: {
+          orderBy: [
+            { stage_id: 'asc' },
+            { round_number: 'asc' },
+            { match_order: 'asc' },
+          ],
+          include: {
+            tournament_stages: {
+              select: { id: true, name: true, stage_order: true },
+            },
+            match_slots_match_slots_match_idTomatches: {
+              include: {
+                tournament_registrations: {
+                  include: {
+                    teams: { select: { id: true, name: true } },
+                  },
+                },
+              },
+            },
+            match_games: {
+              orderBy: { game_number: 'asc' },
+              select: { score_a: true, score_b: true, winner_side: true },
+            },
+          },
+        },
         tournament_registrations: {
           include: {
             teams: {
@@ -130,8 +173,10 @@ export async function getTournamentById(idOrSlug: string) {
 
     if (!tournament) return null
     if (!tournament.is_public && tournament.created_by !== user?.id) return null
+    const { matches, ...tournamentData } = tournament
+
     return {
-      ...tournament,
+      ...tournamentData,
       creator: tournament.profiles,
       prize_pool: tournament.prize_pool?.toNumber() ?? null,
       isAdmin: tournament.created_by === user?.id,
@@ -140,6 +185,34 @@ export async function getTournamentById(idOrSlug: string) {
         status: registration.status,
         team: registration.teams,
       })),
+      bracketMatches: matches.map((match) => {
+        const slots = match.match_slots_match_slots_match_idTomatches
+        const alphaRegistration = slots.find((slot) => slot.side === "A")?.tournament_registrations
+        const betaRegistration = slots.find((slot) => slot.side === "B")?.tournament_registrations
+        const alphaWins = match.match_games.filter(
+          (game) => game.winner_side === "A" || (!game.winner_side && game.score_a > game.score_b),
+        ).length
+        const betaWins = match.match_games.filter(
+          (game) => game.winner_side === "B" || (!game.winner_side && game.score_b > game.score_a),
+        ).length
+
+        return {
+          id: match.id,
+          alpha_team_id: alphaRegistration?.id ?? null,
+          beta_team_id: betaRegistration?.id ?? null,
+          alpha_team: alphaRegistration ? { id: alphaRegistration.id, name: alphaRegistration.teams.name } : undefined,
+          beta_team: betaRegistration ? { id: betaRegistration.id, name: betaRegistration.teams.name } : undefined,
+          score_alpha: alphaWins,
+          score_beta: betaWins,
+          winner_id: match.winner_registration_id,
+          round_number: match.round_number ?? 1,
+          match_order: match.match_order,
+          status: match.status,
+          stage_id: match.tournament_stages.id,
+          stage_name: match.tournament_stages.name,
+          stage_order: match.tournament_stages.stage_order,
+        }
+      }),
     }
   } catch (error) {
     console.error("Erreur getTournamentById:", error)
