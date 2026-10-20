@@ -172,7 +172,33 @@ export async function getTournamentById(idOrSlug: string) {
     })
 
     if (!tournament) return null
-    if (!tournament.is_public && tournament.created_by !== user?.id) return null
+    if (!tournament.is_public && tournament.created_by !== user?.id) {
+      if (!user) return null
+
+      const [teamMembership, structureMembership] = await Promise.all([
+        prisma.team_members.findFirst({
+          where: {
+            user_id: user.id,
+            team_id: { in: tournament.tournament_registrations.map((registration) => registration.team_id) },
+          },
+          select: { team_id: true },
+        }),
+        tournament.organizer_structure_id
+          ? prisma.structure_members.findUnique({
+              where: {
+                structure_id_user_id: {
+                  structure_id: tournament.organizer_structure_id,
+                  user_id: user.id,
+                },
+              },
+              select: { role: true },
+            })
+          : Promise.resolve(null),
+      ])
+      const isStructureAdmin =
+        structureMembership?.role === "OWNER" || structureMembership?.role === "ADMIN"
+      if (!teamMembership && !isStructureAdmin) return null
+    }
     const { matches, ...tournamentData } = tournament
 
     return {

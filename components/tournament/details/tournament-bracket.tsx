@@ -1,6 +1,7 @@
 "use client"
 
 import { useMemo, useState } from "react"
+import Link from "next/link"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -242,7 +243,11 @@ export function TournamentBracket({ initialMatches = [] }: { initialMatches?: Db
 
                         return (
                           <div key={match.id} className="relative flex flex-col group">
-                            <div className="relative z-10 overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-200 hover:border-primary hover:shadow-md">
+                            <Link
+                              href={`/dashboard/matches/${match.id}`}
+                              aria-label={`Voir le match entre ${match.alpha_team?.name || "équipe A"} et ${match.beta_team?.name || "équipe B"}`}
+                              className="relative z-10 block overflow-hidden rounded-lg border bg-card shadow-sm transition-all duration-200 hover:border-primary hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                            >
                               <div className="flex items-center justify-between bg-muted/60 px-3 py-1.5 text-[10px] font-medium text-muted-foreground border-b">
                                 <span>Match #{match.match_order}</span>
                                 {isCompleted ? (
@@ -305,7 +310,7 @@ export function TournamentBracket({ initialMatches = [] }: { initialMatches?: Db
                                   {["PENDING", "READY"].includes(match.status) && match.score_beta === 0 ? "-" : match.score_beta}
                                 </span>
                               </div>
-                            </div>
+                            </Link>
 
                             {roundIndex < stage.rounds.length - 1 && (
                               <div className="absolute top-1/2 -right-12 h-0.5 w-12 bg-border z-0 -translate-y-1/2 group-hover:bg-primary/50 transition-colors" />

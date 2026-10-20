@@ -1,229 +1,244 @@
+BEGIN;
+
 -- ============================================================================
--- HubGamers MVP+ — Script de Données Factices (Seed Data)
--- Compatible PostgreSQL / Supabase
+-- 1. IDENTIFIANTS FIXES ET CONSTANTES
 -- ============================================================================
+DO $$
+DECLARE
+  -- Utilisateurs
+  v_admin_id UUID := '11111111-1111-4111-a111-111111111111';
+  v_player1_id UUID := '11111111-1111-4111-a111-111111111112';
+  v_player2_id UUID := '11111111-1111-4111-a111-111111111113';
 
-begin;
+  -- Structure & Tournoi
+  v_structure_id UUID := '22222222-2222-4222-a222-222222222222';
+  v_tournament_id UUID := '33333333-3333-4333-a333-333333333333';
+  
+  -- Stages
+  v_stage_groups_id UUID := '44444444-4444-4444-a444-444444444444';
+  v_stage_main_id UUID := '55555555-5555-4555-a555-555555555555';
+  v_stage_consolation_id UUID := '66666666-6666-4666-a666-666666666666';
 
--- ---------------------------------------------------------------------------
--- 1. UTILISATEURS FACTICES (Auth & Profiles)
--- Note : Sur Supabase, l'insertion directe dans auth.users est permise en local 
--- ou via le rôle service_role. Des UUID statiques sont utilisés pour les liaisons.
--- ---------------------------------------------------------------------------
+  -- Studio & Scène
+  v_studio_project_id UUID := '77777777-7777-4777-a777-777777777777';
+  v_studio_scene_id UUID := '88888888-8888-4888-a888-888888888888';
 
--- Nettoyage optionnel ou insertion directe sécurisée par ON CONFLICT
-insert into auth.users (id, email, raw_user_meta_data, created_at, updated_at)
-values
-  ('11111111-1111-1111-1111-111111111111', 'admin@hubgamers.io', '{"username": "admin_hub"}', now(), now()),
-  ('22222222-2222-2222-2222-222222222222', 'capitaine.bds@hubgamers.io', '{"username": "MelzH"}', now(), now()),
-  ('33333333-3333-3333-3333-333333333333', 'manager.kc@hubgamers.io', '{"username": "KametoFan"}', now(), now()),
-  ('44444444-4444-4444-4444-444444444444', 'player1@hubgamers.io', '{"username": "RaiZen"}', now(), now()),
-  ('55555555-5555-5555-5555-555555555555', 'player2@hubgamers.io', '{"username": "Shaiiko_fan"}', now(), now())
-on conflict (id) do nothing;
+  -- Variables de boucles
+  v_team_id UUID;
+  v_reg_id UUID;
+  v_group_id UUID;
+  v_match_id UUID;
+  v_team_counter INT := 1;
+  v_group_letter CHAR(1);
+  v_group_idx INT;
+  v_team_in_group INT;
+  
+  v_team_ids UUID[] := '{}';
+  v_reg_ids UUID[] := '{}';
+  v_group_ids UUID[] := '{}';
+  v_main_round1_matches UUID[] := '{}';
 
-insert into public.profiles (id, username, display_name, bio, avatar_url)
-values
-  ('11111111-1111-1111-1111-111111111111', 'admin_hub', 'HubGamers Admin', 'Fondateur et administrateur principal de la plateforme HubGamers.', 'https://images.unsplash.com/photo-1566492031773-4f4e44671857?w=150'),
-  ('22222222-2222-2222-2222-222222222222', 'MelzH', 'MelzH (Capitaine)', 'Capitaine de l''équipe professionnelle sur Rainbow Six Siege.', 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150'),
-  ('33333333-3333-3333-3333-333333333333', 'KametoFan', 'KCorp Manager', 'Manager général pour les tournois majeurs.', 'https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=150'),
-  ('44444444-4444-4444-4444-444444444444', 'RaiZen', 'RaiZen Player', 'Joueur flex / support.', 'https://images.unsplash.com/photo-1492562080023-ab3db95bfbce?w=150'),
-  ('55555555-5555-5555-5555-555555555555', 'Shaiiko_fan', 'Shaiiko Enjoyer', 'Rifler principal.', 'https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=150')
-on conflict (id) do update set username = excluded.username;
+BEGIN
 
--- ---------------------------------------------------------------------------
--- 2. STRUCTURES ESPORT & MEMBRES
--- ---------------------------------------------------------------------------
+  -- ============================================================================
+  -- 2. UTILISATEURS & PROFILS (Auth & Public)
+  -- ============================================================================
+  INSERT INTO "auth"."users" (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_app_meta_data, raw_user_meta_data, is_sso_user)
+  VALUES 
+    (v_admin_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin@esports.com', '$2a$10$UnusedHashForSeedOnlyValue1234567890123', NOW(), '{"provider":"email","providers":["email"]}', '{"display_name":"Tournament Admin"}', false),
+    (v_player1_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'player1@esports.com', '$2a$10$UnusedHashForSeedOnlyValue1234567890123', NOW(), '{"provider":"email","providers":["email"]}', '{"display_name":"Alpha Captain"}', false),
+    (v_player2_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'player2@esports.com', '$2a$10$UnusedHashForSeedOnlyValue1234567890123', NOW(), '{"provider":"email","providers":["email"]}', '{"display_name":"Alpha Player"}', false)
+  ON CONFLICT (id) DO NOTHING;
 
-insert into public.structures (id, name, slug, description, website_url, created_by, is_public)
-values
-  ('aaaaaa01-0000-0000-0000-000000000001', 'HubGamers Official', 'hubgamers-official', 'Structure organisatrice officielle des tournois communautaires.', 'https://hubgamers.io', '11111111-1111-1111-1111-111111111111', true),
-  ('aaaaaa02-0000-0000-0000-000000000002', 'Blue Stars Esport', 'blue-stars', 'Structure esport compétitive sur PC et Console.', 'https://bluestars.example.com', '22222222-2222-2222-2222-222222222222', true)
-on conflict (id) do nothing;
+  INSERT INTO "public"."profiles" (id, username, display_name, avatar_url, bio)
+  VALUES 
+    (v_admin_id, 'admin_esports', 'Tournament Administrator', 'https://api.dicebear.com/7.x/bottts/svg?seed=admin', 'Organisateur officiel de tournois esport.'),
+    (v_player1_id, 'alpha_captain', 'Alpha Captain', 'https://api.dicebear.com/7.x/bottts/svg?seed=p1', 'Capitaine de la Team Alpha 01.'),
+    (v_player2_id, 'alpha_player', 'Alpha Player', 'https://api.dicebear.com/7.x/bottts/svg?seed=p2', 'Joueur flex de la Team Alpha 01.')
+  ON CONFLICT (id) DO NOTHING;
 
-insert into public.structure_members (structure_id, user_id, role)
-values
-  ('aaaaaa01-0000-0000-0000-000000000001', '11111111-1111-1111-1111-111111111111', 'OWNER'),
-  ('aaaaaa02-0000-0000-0000-000000000002', '22222222-2222-2222-2222-222222222222', 'OWNER'),
-  ('aaaaaa02-0000-0000-0000-000000000002', '44444444-4444-4444-4444-444444444444', 'MEMBER')
-on conflict (structure_id, user_id) do nothing;
+  -- ============================================================================
+  -- 3. STRUCTURES & MEMBRES
+  -- ============================================================================
+  INSERT INTO "public"."structures" (id, name, slug, description, website_url, created_by, is_public)
+  VALUES (v_structure_id, 'Apex Esports League', 'apex-esports-league', 'Ligue officielle d esports organisant des tournois internationaux.', 'https://apex-esports.example.com', v_admin_id, true)
+  ON CONFLICT (id) DO NOTHING;
 
--- ---------------------------------------------------------------------------
--- 3. ÉQUIPES & MEMBRES D'ÉQUIPES
--- ---------------------------------------------------------------------------
+  INSERT INTO "public"."structure_members" (structure_id, user_id, role)
+  VALUES 
+    (v_structure_id, v_admin_id, 'OWNER'),
+    (v_structure_id, v_player1_id, 'ADMIN')
+  ON CONFLICT (structure_id, user_id) DO NOTHING;
 
-insert into public.teams (id, name, slug, game, platform, description, created_by, is_public)
-values
-  ('bbbbbb01-0000-0000-0000-000000000001', 'Blue Stars R6', 'blue-stars-r6', 'Rainbow Six Siege', 'PC', 'Équipe officielle Rainbow Six Siege.', '22222222-2222-2222-2222-222222222222', true),
-  ('bbbbbb02-0000-0000-0000-000000000002', 'Apex Legends Titans', 'apex-titans', 'Apex Legends', 'PC', 'Roster compétitif Apex.', '33333333-3333-3333-3333-333333333333', true)
-on conflict (id) do nothing;
-
-insert into public.team_members (team_id, user_id, role, jersey_number)
-values
-  ('bbbbbb01-0000-0000-0000-000000000001', '22222222-2222-2222-2222-222222222222', 'CAPTAIN', 7),
-  ('bbbbbb01-0000-0000-0000-000000000001', '44444444-4444-4444-4444-444444444444', 'PLAYER', 10),
-  ('bbbbbb01-0000-0000-0000-000000000001', '55555555-5555-5555-5555-555555555555', 'PLAYER', 99),
-  ('bbbbbb02-0000-0000-0000-000000000002', '33333333-3333-3333-3333-333333333333', 'MANAGER', null)
-on conflict (team_id, user_id) do nothing;
-
--- Rattachement structure -> équipe
-insert into public.structure_teams (structure_id, team_id)
-values
-  ('aaaaaa02-0000-0000-0000-000000000002', 'bbbbbb01-0000-0000-0000-000000000001')
-on conflict (structure_id, team_id) do nothing;
-
--- ---------------------------------------------------------------------------
--- 4. TOURNOIS & INSCRIPTIONS
--- ---------------------------------------------------------------------------
-
-insert into public.tournaments (
-  id, name, slug, description, rules, game, platform, status, 
-  organizer_structure_id, created_by, min_teams, max_teams, 
-  team_size_min, team_size_max, prize_pool, prize_currency, is_public
-)
-values
-  (
-    'cccccccc-0000-0000-0000-000000000001',
-    'HubGamers Cup #1 - Rainbow Six Siege',
-    'hubgamers-cup-1-r6',
-    'Premier tournoi officiel de la saison sur Rainbow Six Siege.',
-    'Règlement standard ESL / Matchs en BO3.',
-    'Rainbow Six Siege',
+  -- ============================================================================
+  -- 4. TOURNOI (32 ÉQUIPES)
+  -- ============================================================================
+  INSERT INTO "public"."tournaments" (
+    id, name, slug, description, rules, game, platform, status, organizer_structure_id, created_by, min_teams, max_teams, team_size_min, team_size_max, starts_at, timezone, is_public, is_free, prize_pool, prize_currency
+  ) VALUES (
+    v_tournament_id,
+    'Championship Cup 2026',
+    'championship-cup-2026',
+    'Tournoi majeur à 32 équipes comprenant une phase de groupes suivie de deux arbres à élimination directe.',
+    'Règlement standard. Fair-play obligatoire.',
+    'Valorant',
     'PC',
     'IN_PROGRESS',
-    'aaaaaa01-0000-0000-0000-000000000001',
-    '11111111-1111-1111-1111-111111111111',
-    2, 16, 3, 5, 500.00, 'EUR', true
-  )
-on conflict (id) do nothing;
-
-insert into public.tournament_registrations (
-  id, tournament_id, team_id, registered_by, status, seed, checked_in_at
-)
-values
-  (
-    'dddddd01-0000-0000-0000-000000000001',
-    'cccccccc-0000-0000-0000-000000000001',
-    'bbbbbb01-0000-0000-0000-000000000001',
-    '22222222-2222-2222-2222-222222222222',
-    'CHECKED_IN',
-    1,
-    now()
-  ),
-  (
-    'dddddd02-0000-0000-0000-000000000002',
-    'cccccccc-0000-0000-0000-000000000001',
-    'bbbbbb02-0000-0000-0000-000000000002',
-    '33333333-3333-3333-3333-333333333333',
-    'CHECKED_IN',
-    2,
-    now()
-  )
-on conflict (id) do nothing;
-
--- ---------------------------------------------------------------------------
--- 5. PHASES, GROUPES ET MATCHS
--- ---------------------------------------------------------------------------
-
-insert into public.tournament_stages (
-  id, tournament_id, name, stage_order, stage_type, status, config
-)
-values
-  (
-    'eeeeee01-0000-0000-0000-000000000001',
-    'cccccccc-0000-0000-0000-000000000001',
-    'Playoffs - Bracket Principal',
-    1,
-    'SINGLE_ELIMINATION',
-    'IN_PROGRESS',
-    '{"best_of": 3, "third_place_match": false}'::jsonb
-  )
-on conflict (id) do nothing;
-
-insert into public.matches (
-  id, tournament_id, stage_id, name, round_number, match_order, status, best_of, started_at
-)
-values
-  (
-    'ffffff01-0000-0000-0000-000000000001',
-    'cccccccc-0000-0000-0000-000000000001',
-    'eeeeee01-0000-0000-0000-000000000001',
-    'Finale',
-    1,
-    1,
-    'LIVE',
-    3,
-    now()
-  )
-on conflict (id) do nothing;
-
--- Slots du match (Équipe A vs Équipe B)
-insert into public.match_slots (
-  id, match_id, side, registration_id, source
-)
-values
-  (
-    '77777701-0000-0000-0000-000000000001',
-    'ffffff01-0000-0000-0000-000000000001',
-    'A',
-    'dddddd01-0000-0000-0000-000000000001',
-    'REGISTRATION'
-  ),
-  (
-    '77777702-0000-0000-0000-000000000002',
-    'ffffff01-0000-0000-0000-000000000001',
-    'B',
-    'dddddd02-0000-0000-0000-000000000002',
-    'REGISTRATION'
-  )
-on conflict (id) do nothing;
-
--- Scores détaillés par carte (Map 1 en cours)
-insert into public.match_games (
-  id, match_id, game_number, score_a, score_b, map_name, started_at
-)
-values
-  (
-    '88888801-0000-0000-0000-000000000001',
-    'ffffff01-0000-0000-0000-000000000001',
-    1,
+    v_structure_id,
+    v_admin_id,
+    32,
+    32,
     5,
-    3,
-    'Clubhouse',
-    now()
-  )
-on conflict (id) do nothing;
-
--- ---------------------------------------------------------------------------
--- 6. HUBGAMERS STUDIO (Overlays & Projets)
--- ---------------------------------------------------------------------------
-
-insert into public.studio_projects (
-  id, tournament_id, name, theme, created_by
-)
-values
-  (
-    '99999901-0000-0000-0000-000000000001',
-    'cccccccc-0000-0000-0000-000000000001',
-    'Studio Principal - HubGamers Cup #1',
-    '{"primary": "#CCFF00", "secondary": "#1E293B", "background": "#0F172A"}'::jsonb,
-    '11111111-1111-1111-1111-111111111111'
-  )
-on conflict (id) do nothing;
-
-insert into public.studio_scenes (
-  id, project_id, name, scene_type, slug, is_enabled, is_default, layout
-)
-values
-  (
-    'aaaa0001-0000-0000-0000-000000000001',
-    '99999901-0000-0000-0000-000000000001',
-    'Match en cours (Overlay Scoreboard)',
-    'MATCH',
-    'live-match',
+    5,
+    NOW() + INTERVAL '1 day',
+    'Europe/Paris',
     true,
     true,
-    '{"width": 1920, "height": 1080, "widgets": ["scoreboard", "cams", "timer"]}'::jsonb
-  )
-on conflict (id) do nothing;
+    10000.00,
+    'EUR'
+  ) ON CONFLICT (id) DO NOTHING;
 
-commit;
+  -- ============================================================================
+  -- 5. ÉQUIPES, MEMBRES & INSCRIPTIONS
+  -- ============================================================================
+  FOR v_team_counter IN 1..32 LOOP
+    v_team_id := gen_random_uuid();
+    v_reg_id := gen_random_uuid();
+    
+    v_team_ids := array_append(v_team_ids, v_team_id);
+    v_reg_ids := array_append(v_reg_ids, v_reg_id);
+
+    INSERT INTO "public"."teams" (id, name, slug, game, platform, created_by, is_public)
+    VALUES (
+      v_team_id,
+      'Team Alpha ' || LPAD(v_team_counter::text, 2, '0'),
+      'team-alpha-' || LPAD(v_team_counter::text, 2, '0'),
+      'Valorant',
+      'PC',
+      v_admin_id,
+      true
+    );
+
+    -- Lier la première équipe aux utilisateurs de test
+    IF v_team_counter = 1 THEN
+      INSERT INTO "public"."team_members" (team_id, user_id, role, jersey_number)
+      VALUES 
+        (v_team_id, v_player1_id, 'CAPTAIN', 7),
+        (v_team_id, v_player2_id, 'PLAYER', 10);
+    ELSE
+      INSERT INTO "public"."team_members" (team_id, user_id, role, jersey_number)
+      VALUES (v_team_id, v_admin_id, 'MANAGER', 1);
+    END IF;
+
+    -- Lier l'équipe à la structure pour la team 1
+    IF v_team_counter = 1 THEN
+      INSERT INTO "public"."structure_teams" (structure_id, team_id)
+      VALUES (v_structure_id, v_team_id)
+      ON CONFLICT DO NOTHING;
+    END IF;
+
+    -- Inscription validée
+    INSERT INTO "public"."tournament_registrations" (id, tournament_id, team_id, registered_by, status, seed, checked_in_at)
+    VALUES (
+      v_reg_id,
+      v_tournament_id,
+      v_team_id,
+      v_admin_id,
+      'APPROVED',
+      v_team_counter,
+      NOW()
+    );
+  END LOOP;
+
+  -- ============================================================================
+  -- 6. STAGE 1 : PHASE DE GROUPES (8 GROUPES DE 4)
+  -- ============================================================================
+  INSERT INTO "public"."tournament_stages" (id, tournament_id, name, stage_order, stage_type, status)
+  VALUES (v_stage_groups_id, v_tournament_id, 'Phase de Groupes', 1, 'GROUPS', 'IN_PROGRESS')
+  ON CONFLICT DO NOTHING;
+
+  FOR v_group_idx IN 1..8 LOOP
+    v_group_letter := CHR(64 + v_group_idx);
+    v_group_id := gen_random_uuid();
+    v_group_ids := array_append(v_group_ids, v_group_id);
+
+    INSERT INTO "public"."stage_groups" (id, stage_id, name, group_order)
+    VALUES (v_group_id, v_stage_groups_id, 'Groupe ' || v_group_letter, v_group_idx);
+
+    FOR v_team_in_group IN 1..4 LOOP
+      v_reg_id := v_reg_ids[(v_group_idx - 1) * 4 + v_team_in_group];
+
+      INSERT INTO "public"."stage_entries" (stage_id, registration_id, group_id, seed)
+      VALUES (v_stage_groups_id, v_reg_id, v_group_id, v_team_in_group);
+
+      INSERT INTO "public"."stage_standings" (stage_id, group_id, registration_id, rank, points, played, wins, losses)
+      VALUES (v_stage_groups_id, v_group_id, v_reg_id, v_team_in_group, 3, 1, 1, 0);
+    END LOOP;
+  END LOOP;
+
+  -- ============================================================================
+  -- 7. STAGE 2 : BRACKET PRINCIPAL (16 ÉQUIPES) & EXEMPLE DE MATCH/GAME
+  -- ============================================================================
+  INSERT INTO "public"."tournament_stages" (id, tournament_id, name, stage_order, stage_type, status)
+  VALUES (v_stage_main_id, v_tournament_id, 'Bracket Principal', 2, 'SINGLE_ELIMINATION', 'DRAFT')
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO "public"."stage_transitions" (from_stage_id, to_stage_id, name, source_scope, qualification_rule)
+  VALUES (v_stage_groups_id, v_stage_main_id, 'Qualification Top 2', 'GROUP', '{"ranks": [1, 2], "target": "MAIN_BRACKET"}');
+
+  -- Création d'un match de test en Huitième de finale avec des sous-parties (match_games)
+  v_match_id := gen_random_uuid();
+  v_main_round1_matches := array_append(v_main_round1_matches, v_match_id);
+
+  INSERT INTO "public"."matches" (id, tournament_id, stage_id, name, round_number, match_order, status, best_of, winner_registration_id)
+  VALUES (v_match_id, v_tournament_id, v_stage_main_id, 'Huitième de finale 1', 1, 1, 'COMPLETED', 3, v_reg_ids[1]);
+
+  -- Slots pour ce match
+  INSERT INTO "public"."match_slots" (match_id, side, registration_id, source, source_stage_id, source_group_id, source_rank)
+  VALUES 
+    (v_match_id, 'A', v_reg_ids[1], 'GROUP_RANK', v_stage_groups_id, v_group_ids[1], 1),
+    (v_match_id, 'B', v_reg_ids[2], 'GROUP_RANK', v_stage_groups_id, v_group_ids[2], 2);
+
+  -- Jeux / Maps individuelles du match
+  INSERT INTO "public"."match_games" (match_id, game_number, score_a, score_b, winner_side, map_name, started_at, completed_at)
+  VALUES 
+    (v_match_id, 1, 13, 8, 'A', 'Ascent', NOW() - INTERVAL '2 hours', NOW() - INTERVAL '1 hour 30 minutes'),
+    (v_match_id, 2, 13, 11, 'A', 'Bind', NOW() - INTERVAL '1 hour 20 minutes', NOW() - INTERVAL '30 minutes');
+
+  -- ============================================================================
+  -- 8. STAGE 3 : BRACKET DE CONSOLATION (16 ÉQUIPES)
+  -- ============================================================================
+  INSERT INTO "public"."tournament_stages" (id, tournament_id, name, stage_order, stage_type, status)
+  VALUES (v_stage_consolation_id, v_tournament_id, 'Bracket de Consolation', 3, 'SINGLE_ELIMINATION', 'DRAFT')
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO "public"."stage_transitions" (from_stage_id, to_stage_id, name, source_scope, qualification_rule)
+  VALUES (v_stage_groups_id, v_stage_consolation_id, 'Qualification Rangs 3 et 4', 'GROUP', '{"ranks": [3, 4], "target": "CONSOLATION_BRACKET"}');
+
+  -- ============================================================================
+  -- 9. MODULE STUDIO & OVERLAYS (Scenes, Tokens, Audit Logs, Invitations)
+  -- ============================================================================
+  INSERT INTO "public"."studio_projects" (id, tournament_id, name, theme, created_by)
+  VALUES (v_studio_project_id, v_tournament_id, 'Studio Production Principal', '{"primary": "#CCFF00", "secondary": "#1E293B", "background": "#0F172A"}', v_admin_id)
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO "public"."studio_scenes" (id, project_id, name, scene_type, slug, is_enabled, is_default)
+  VALUES (v_studio_scene_id, v_studio_project_id, 'Overlay Match en Direct', 'MATCH', 'live-match', true, true)
+  ON CONFLICT DO NOTHING;
+
+  INSERT INTO "public"."studio_public_tokens" (project_id, scene_id, token_hash, label, is_active)
+  VALUES (v_studio_project_id, v_studio_scene_id, 'hash_sample_token_obs_123456789', 'OBS Browser Source Token', true)
+  ON CONFLICT DO NOTHING;
+
+  -- Journal d'audit
+  INSERT INTO "public"."audit_logs" (actor_id, entity_type, entity_id, action, details)
+  VALUES (v_admin_id, 'TOURNAMENT', v_tournament_id, 'CREATE', '{"message": "Création initiale du tournoi 32 équipes avec seed."}');
+
+  -- Invitation de test
+  INSERT INTO "public"."invitations" (email, target_type, target_id, invited_by, role, token_hash, status)
+  VALUES ('invite.guest@esports.com', 'TOURNAMENT', v_tournament_id, v_admin_id, 'PLAYER', 'hash_invitation_token_sample_abc', 'PENDING')
+  ON CONFLICT DO NOTHING;
+
+END $$;
+
+COMMIT;
