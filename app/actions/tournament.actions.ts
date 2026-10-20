@@ -5,6 +5,9 @@ import { createClient } from "@/lib/supabase/server" // Adapte selon ton chemin 
 import { revalidatePath } from "next/cache"
 import { redirect } from "next/navigation"
 import { getCurrentUserWithProfile } from "./auth.actions"
+import { Resend } from "resend"
+
+const resend = new Resend(process.env.RESEND_API_KEY)
 
 export interface Tournament {
   id: string
@@ -181,4 +184,160 @@ export async function updateTournament(tournamentId: string, prevState: any, for
   revalidatePath(`/dashboard/tournaments/${tournamentId}`)
   revalidatePath("/dashboard/tournaments")
   redirect(`/dashboard/tournaments/${tournamentId}`)
+}
+
+
+/**
+ * BOUTON 1 : Inviter une équipe (Status = PENDING)
+ * L'équipe reçoit une notification / invitation qu'elle doit accepter.
+ */
+export async function inviteTeamToTournament(prevState: any, formData: FormData) {
+  const supabase = await createClient()
+
+  const tournamentId = formData.get("tournamentId") as string
+  const teamId = formData.get("teamId") as string
+
+  if (!tournamentId || !teamId) {
+    return { success: false, message: "Informations manquantes pour l'invitation." }
+  }
+
+  // 1. Récupérer l'utilisateur connecté (celui qui invite)
+  const { data: { user }, error: authError } = await supabase.auth.getUser()
+  if (authError || !user) {
+    return { success: false, message: "Vous devez être connecté." }
+  }
+
+  // 2. Récupérer l'e-mail de contact de l'équipe ciblée (via ses membres)
+  const { data: teamData, error: teamError } = await supabase
+    .from("teams")
+    .select(`
+      id,
+      name,
+      teams_users (
+        user:users (
+          email
+        )
+      )
+    `)
+    .eq("id", teamId)
+    .single()
+
+  if (teamError || !teamData) {
+    return { success: false, message: "Équipe introuvable." }
+  }
+
+  // Récupérer le premier e-mail disponible de l'équipe
+  const teamEmail = (teamData.teams_users as any)?.[0]?.user?.email
+
+  if (!teamEmail) {
+    return { success: false, message: "Aucun e-mail de contact trouvé pour cette équipe." }
+  }
+
+  // 3. Insérer l'invitation dans la table `invitations` avec type 'TOURNAMENT'
+  // Note : target_id stocke l'ID du tournoi (ou de l'équipe, à ajuster selon ton entité cible principale)
+  const { error: inviteError } = await supabase
+    .from("invitations")
+    .insert({
+      email: teamEmail,
+      type: "TOURNAMENT",
+      target_id: tournamentId, // L'ID du tournoi (ou teamId si target_id cible l'équipe)
+      invited_by: user.id,
+      role: "PLAYER", // Rôle par défaut dans l'équipe pour ce tournoi
+      status: "PENDING",
+    })
+
+  if (inviteError) {
+    console.error("Erreur insertion invitation tournoi:", inviteError.message)
+    if (inviteError.code === "23505") {
+      return { success: false, message: "Une invitation a déjà été envoyée à cette équipe pour ce tournoi." }
+    }
+    return { success: false, message: "Erreur lors de la création de l'invitation." }
+  }
+
+  // 4. (Optionnel) Créer aussi une ligne PENDING dans les inscriptions du tournoi pour l'affichage visuel
+  await supabase
+    .from("tournament_registrations")
+    .upsert({
+      tournament_id: tournamentId,
+      team_id: teamId,
+      status: "PENDING",
+    }, { onConflict: "tournament_id,team_id" })
+
+  revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+
+  return {
+    success: true,
+    message: "Invitation créée avec succès dans la table des invitations !",
+  }
+}
+
+/**
+ * BOUTON 2 : Ajouter directement une équipe (Status = ACCEPTED)
+ * Suppose avoir reçu leur accord au préalable.
+ */
+export async function addTeamToTournament(prevState: any, formData: FormData) {
+  const supabase = await createClient()
+  const tournamentId = formData.get("tournamentId") as string
+  const teamId = formData.get("teamId") as string
+
+  if (!tournamentId || !teamId) {
+    return { success: false, message: "Informations manquantes." }
+  }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non autorisé." }
+
+  // Upsert ou Insert direct en statut ACCEPTED
+  const { error } = await supabase
+    .from("tournament_registrations")
+    .upsert({
+      tournament_id: tournamentId,
+      team_id: teamId,
+      status: "ACCEPTED", // <--- Ajout direct validé
+    }, { onConflict: "tournament_id,team_id" })
+
+  if (error) {
+    return { success: false, message: "Impossible d'ajouter l'équipe au tournoi." }
+  }
+
+  revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+  return { success: true, message: "L'équipe a été ajoutée directement au tournoi !" }
+}
+
+/**
+ * OPTION : Inviter par email via Resend
+ */
+export async function inviteTeamByEmail(prevState: any, formData: FormData) {
+  const supabase = await createClient()
+  const tournamentId = formData.get("tournamentId") as string
+  const email = formData.get("email") as string
+
+  if (!tournamentId || !email) return { success: false, message: "Email requis." }
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non autorisé." }
+
+  const { data: tournament } = await supabase
+    .from("tournaments")
+    .select("name, game")
+    .eq("id", tournamentId)
+    .single()
+
+  try {
+    await resend.emails.send({
+      from: "HubGamers <onboarding@resend.dev>",
+      to: [email],
+      subject: `Invitation au tournoi : ${tournament?.name || "HubGamers"}`,
+      html: `
+        <div style="font-family: sans-serif; padding: 20px;">
+          <h2>Invitation au tournoi ${tournament?.name}</h2>
+          <p>Vous avez été invité à inscrire votre équipe sur <strong>${tournament?.game}</strong>.</p>
+        </div>
+      `,
+    })
+
+    return { success: true, message: "Invitation envoyée par email avec succès !" }
+  } catch {
+    return { success: false, message: "Erreur d'envoi d'email." }
+  }
 }

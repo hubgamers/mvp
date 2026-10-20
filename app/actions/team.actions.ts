@@ -304,3 +304,105 @@ export async function updateTeamMemberRole(teamId: string, structureId: string, 
   revalidatePath(`/dashboard/structures/${structureId}/teams/${teamId}`)
   return { success: true, message: "Rôle mis à jour avec succès." }
 }
+
+export interface SearchedTeam {
+  id: string
+  name: string
+  game?: string
+  structureName?: string
+}
+
+export async function searchTeamsForTournament(
+  query: string,
+  excludeTeamIds: string[] = []
+): Promise<SearchedTeam[]> {
+  const supabase = await createClient()
+
+  if (!query || query.trim().length < 2) {
+    return []
+  }
+
+  const cleanQuery = query.trim()
+
+  // 1. Rechercher les équipes par leur nom directement
+  const { data: teamsByName, error: teamError } = await supabase
+    .from("teams")
+    .select(`
+      id,
+      name,
+      game,
+      structures_teams (
+        structure:structures (
+          name
+        )
+      )
+    `)
+    .ilike("name", `%${cleanQuery}%`)
+    .limit(10)
+
+  if (teamError) {
+    console.error("Erreur recherche teamsByName:", teamError.message)
+  }
+
+  // 2. Rechercher les structures par leur nom pour trouver leurs équipes associées
+  const { data: structuresByName, error: structError } = await supabase
+    .from("structures")
+    .select(`
+      id,
+      name,
+      structures_teams (
+        team:teams (
+          id,
+          name,
+          game
+        )
+      )
+    `)
+    .ilike("name", `%${cleanQuery}%`)
+    .limit(10)
+
+  if (structError) {
+    console.error("Erreur recherche structuresByName:", structError.message)
+  }
+
+  // 3. Fusionner et dédoublonner les résultats
+  const excludeSet = new Set(excludeTeamIds)
+  const resultMap = new Map<string, SearchedTeam>()
+
+  // Ajouter les équipes trouvées par leur nom
+  if (teamsByName) {
+    for (const team of teamsByName as any[]) {
+      if (!excludeSet.has(team.id)) {
+        const structureName = team.structures_teams?.[0]?.structure?.name || undefined
+        resultMap.set(team.id, {
+          id: team.id,
+          name: team.name,
+          game: team.game,
+          structureName,
+        })
+      }
+    }
+  }
+
+  // Ajouter les équipes trouvées via le nom de leur structure
+  if (structuresByName) {
+    for (const struct of structuresByName as any[]) {
+      const structName = struct.name
+      const teamsList = struct.structures_teams || []
+
+      for (const rel of teamsList) {
+        const team = rel.team
+        if (team && !excludeSet.has(team.id) && !resultMap.has(team.id)) {
+          resultMap.set(team.id, {
+            id: team.id,
+            name: team.name,
+            game: team.game,
+            structureName: structName,
+          })
+        }
+      }
+    }
+  }
+
+  return Array.from(resultMap.values())
+}

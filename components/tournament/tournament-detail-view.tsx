@@ -6,10 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Separator } from "@/components/ui/separator"
-import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy } from "lucide-react"
+import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus } from "lucide-react"
+import { InviteTeamForm } from "./invite-team-form"
 
 interface TournamentDetailViewProps {
-  tournament: TournamentDetail
+  tournament: TournamentDetail & {
+    isAdmin?: boolean // Si tu gères les droits d'administration du tournoi
+  }
 }
 
 const statusMap: Record<string, { label: string; variant: "default" | "secondary" | "outline" | "destructive" }> = {
@@ -56,9 +59,9 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               Créé le {new Date(tournament.created_at).toLocaleDateString("fr-FR")}
             </span>
             <span>
-                <Link href={`/dashboard/tournaments/${tournament.id}/edit`}>
+              <Link href={`/dashboard/tournaments/${tournament.id}/edit`} className="text-primary hover:underline font-medium">
                 Modifier le tournoi
-                </Link>
+              </Link>
             </span>
           </div>
         </div>
@@ -88,7 +91,7 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               <CardContent className="space-y-4 text-sm text-muted-foreground">
                 <p>Bienvenue sur la page officielle du tournoi <strong>{tournament.name}</strong> sur le jeu <strong>{tournament.game}</strong>.</p>
                 <div className="flex items-center gap-2 pt-2">
-                  <span className="font-semibold text-foreground">Créé par :</span> 
+                  <span className="font-semibold text-foreground">Créé par :</span>
                   <span>{tournament.creator?.email || "Organisateur inconnu"}</span>
                 </div>
               </CardContent>
@@ -117,11 +120,28 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
           </div>
         </TabsContent>
 
-        {/* TAB: PARTICIPANTS */}
-        <TabsContent value="participants">
+        {/* TAB: PARTICIPANTS & INVITATIONS */}
+        <TabsContent value="participants" className="space-y-6">
+          {/* Section d'invitation / Inscription d'équipe */}
           <Card>
             <CardHeader>
-              <CardTitle>Équipes enregistrées</CardTitle>
+              <CardTitle className="flex items-center gap-2 text-base">
+                <UserPlus className="h-4 w-4 text-primary" /> Inviter ou inscrire une équipe
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              {/* Formulaire ou composant d'invitation */}
+              <InviteTeamForm
+                tournamentId={tournament.id}
+                existingRegistrations={tournament.registrations || []}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Liste des équipes enregistrées */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Équipes enregistrées ({tournament.registrations?.length || 0})</CardTitle>
             </CardHeader>
             <CardContent>
               {tournament.registrations && tournament.registrations.length > 0 ? (
