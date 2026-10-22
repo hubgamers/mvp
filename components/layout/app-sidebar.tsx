@@ -10,6 +10,8 @@ import {
   Trophy,
   UserRound,
   UsersRound,
+  Clapperboard,
+  Sparkles,
 } from "lucide-react"
 
 import { NavMain } from "@/components/layout/nav-main"
@@ -29,48 +31,50 @@ import {
 
 const navigation = [
   {
-    label: "Espace",
+    label: "Espace Général",
     items: [
-      { title: "Accueil", url: "/dashboard", icon: <Home /> },
-      { title: "Chats", url: "/dashboard/chats", icon: <MessageSquare /> },
+      { title: "Dashboard", url: "/dashboard", icon: <Home className="size-4 text-brand-cyan" /> },
+      { title: "Match Chats", url: "/dashboard/chats", icon: <MessageSquare className="size-4" /> },
     ],
   },
   {
-    label: "Organiser",
+    label: "Compétitions",
     items: [
       {
         title: "Tournois",
         url: "/dashboard/tournaments",
-        icon: <Trophy />,
+        icon: <Trophy className="size-4 text-amber-400" />,
         items: [
-          { title: "Explorer", url: "/dashboard/tournaments/explore" },
-          { title: "Mes tournois", url: "/dashboard/tournaments" },
-          { title: "Créer un tournoi", url: "/dashboard/tournaments/new" },
+          { title: "Explorer les tournois", url: "/dashboard/tournaments/explore" },
+          { title: "Mes compétitions", url: "/dashboard/tournaments" },
+          { title: "Nouveau tournoi", url: "/dashboard/tournaments/new" },
         ],
       },
       {
         title: "Structures",
         url: "/dashboard/structures",
-        icon: <Building2 />,
+        icon: <Building2 className="size-4 text-emerald-400" />,
         items: [
-          { title: "Explorer", url: "/dashboard/structures/explore" },
+          { title: "Explorer les clubs", url: "/dashboard/structures/explore" },
           { title: "Mes structures", url: "/dashboard/structures" },
-          { title: "Créer une structure", url: "/dashboard/structures/new" },
+          { title: "Nouvelle structure", url: "/dashboard/structures/new" },
         ],
       },
-      { title: "Équipes", url: "/dashboard/teams", icon: <UsersRound /> },
-      { title: "Invitations", url: "/dashboard/invitations", icon: <Mail /> },
+      { title: "Mes Équipes & Lineups", url: "/dashboard/teams", icon: <UsersRound className="size-4 text-purple-400" /> },
+      { title: "Invitations Reçues", url: "/dashboard/invitations", icon: <Mail className="size-4" /> },
     ],
   },
   {
-    label: "Créer",
-    items: [{ title: "Studio", url: "/dashboard/studio", icon: <Gamepad2 /> }],
+    label: "Diffusion Live",
+    items: [
+      { title: "Studio Broadcast OBS", url: "/dashboard/studio", icon: <Clapperboard className="size-4 text-purple-400" /> },
+    ],
   },
   {
-    label: "Compte",
+    label: "Administration",
     items: [
-      { title: "Facturation", url: "/dashboard/billing", icon: <CreditCard /> },
-      { title: "Profil", url: "/dashboard/user", icon: <UserRound /> },
+      { title: "Abonnement & Factures", url: "/dashboard/billing", icon: <CreditCard className="size-4" /> },
+      { title: "Profil Joueur", url: "/dashboard/user", icon: <UserRound className="size-4" /> },
     ],
   },
 ]
@@ -85,25 +89,25 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
 
 export function AppSidebar({ user, ...props }: AppSidebarProps) {
   return (
-    <Sidebar collapsible="icon" {...props}>
-      <SidebarHeader className="border-b border-sidebar-border px-3 py-4">
+    <Sidebar collapsible="icon" className="border-r border-white/[0.08] bg-[#0a0e17]" {...props}>
+      <SidebarHeader className="border-b border-white/[0.08] px-3 py-4">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton
               render={<Link href="/dashboard" />}
               size="lg"
               tooltip="HubGamers"
-              className="h-12 gap-3 rounded-lg px-2 hover:bg-sidebar-accent"
+              className="h-12 gap-3 rounded-xl px-2.5 hover:bg-white/[0.04] transition-colors"
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-md bg-sidebar-primary text-sidebar-primary-foreground shadow-[0_0_18px_color-mix(in_srgb,var(--brand-cyan)_22%,transparent)]">
-                <Gamepad2 className="size-5" />
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-brand-cyan to-blue-600 text-slate-950 font-black shadow-[0_0_20px_rgba(0,242,254,0.35)]">
+                <Gamepad2 className="size-5 text-brand-ink" />
               </span>
               <span className="grid min-w-0 flex-1 text-left leading-tight">
-                <span className="truncate text-sm font-bold tracking-tight text-sidebar-foreground">
-                  Hub<span className="text-brand-cyan">Gamers</span>
+                <span className="truncate text-base font-black tracking-tight text-white flex items-center">
+                  HUB<span className="text-brand-cyan">GAMERS</span>
                 </span>
-                <span className="mt-1 truncate text-[10px] font-medium uppercase tracking-[0.16em] text-muted-foreground">
-                  Espace organisateur
+                <span className="mt-0.5 truncate text-[9px] font-bold uppercase tracking-[0.2em] text-brand-cyan">
+                  ESPORT OS · PRO
                 </span>
               </span>
             </SidebarMenuButton>
@@ -111,10 +115,10 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarContent className="gap-2 px-2 py-4">
+      <SidebarContent className="gap-2 px-2.5 py-4">
         {navigation.map((group) => (
-          <SidebarGroup key={group.label} className="p-0">
-            <SidebarGroupLabel className="h-7 px-3 text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          <SidebarGroup key={group.label} className="p-0 mb-3">
+            <SidebarGroupLabel className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-slate-400">
               {group.label}
             </SidebarGroupLabel>
             <NavMain items={group.items} />
@@ -122,7 +126,7 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
         ))}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-3">
+      <SidebarFooter className="border-t border-white/[0.08] p-3 bg-black/20">
         <NavUser user={user} />
       </SidebarFooter>
       <SidebarRail />

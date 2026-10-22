@@ -59,47 +59,51 @@
 :root {
   color-scheme: dark;
 
-  --brand-ink: #090d16;
-  --brand-slate: #121a28;
-  --brand-cyan: #20e3f2;
+  /* Palette Esport Ultime */
+  --brand-ink: #07090e;
+  --brand-slate: #0d121d;
+  --brand-card: #101726;
+  --brand-cyan: #00f2fe;
+  --brand-cyan-glow: rgba(0, 242, 254, 0.35);
   --brand-mist: #f8fafc;
-  --brand-violet: #a990ff;
-  --brand-lime: #c5f467;
-  --brand-amber: #ffd166;
-  --brand-coral: #ff8b9b;
+  --brand-violet: #8b5cf6;
+  --brand-violet-glow: rgba(139, 92, 246, 0.35);
+  --brand-lime: #10b981;
+  --brand-amber: #f59e0b;
+  --brand-coral: #ef4444;
 
-  --background: var(--brand-ink);
-  --foreground: var(--brand-mist);
-  --card: var(--brand-slate);
-  --card-foreground: var(--brand-mist);
-  --popover: var(--brand-slate);
-  --popover-foreground: var(--brand-mist);
-  --primary: var(--brand-cyan);
-  --primary-foreground: var(--brand-ink);
-  --secondary: #1c2a3d;
-  --secondary-foreground: var(--brand-mist);
-  --muted: var(--brand-slate);
-  --muted-foreground: #bdc7d6;
-  --accent: #23334a;
-  --accent-foreground: var(--brand-cyan);
-  --destructive: var(--brand-coral);
-  --border: #39485e;
-  --input: #1b2637;
-  --ring: var(--brand-cyan);
-  --chart-1: var(--brand-cyan);
-  --chart-2: var(--brand-violet);
-  --chart-3: var(--brand-lime);
-  --chart-4: var(--brand-amber);
-  --chart-5: var(--brand-coral);
-  --radius: 0.35rem;
-  --sidebar: var(--brand-slate);
-  --sidebar-foreground: var(--brand-mist);
-  --sidebar-primary: var(--brand-cyan);
-  --sidebar-primary-foreground: var(--brand-ink);
-  --sidebar-accent: #23334a;
-  --sidebar-accent-foreground: var(--brand-cyan);
-  --sidebar-border: var(--border);
-  --sidebar-ring: var(--brand-cyan);
+  --background: #07090e;
+  --foreground: #f8fafc;
+  --card: #0d121d;
+  --card-foreground: #f8fafc;
+  --popover: #0d121d;
+  --popover-foreground: #f8fafc;
+  --primary: #00f2fe;
+  --primary-foreground: #07090e;
+  --secondary: #131b2c;
+  --secondary-foreground: #e2e8f0;
+  --muted: #111726;
+  --muted-foreground: #94a3b8;
+  --accent: #172238;
+  --accent-foreground: #00f2fe;
+  --destructive: #ef4444;
+  --border: rgba(255, 255, 255, 0.08);
+  --input: #121929;
+  --ring: #00f2fe;
+  --chart-1: #00f2fe;
+  --chart-2: #8b5cf6;
+  --chart-3: #10b981;
+  --chart-4: #f59e0b;
+  --chart-5: #ef4444;
+  --radius: 0.5rem;
+  --sidebar: #0a0e17;
+  --sidebar-foreground: #f8fafc;
+  --sidebar-primary: #00f2fe;
+  --sidebar-primary-foreground: #07090e;
+  --sidebar-accent: #131b2c;
+  --sidebar-accent-foreground: #00f2fe;
+  --sidebar-border: rgba(255, 255, 255, 0.07);
+  --sidebar-ring: #00f2fe;
 }
 
 .dark {
@@ -112,13 +116,94 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: #07090e;
+    background-image: 
+      radial-gradient(at 0% 0%, rgba(0, 242, 254, 0.04) 0px, transparent 50%),
+      radial-gradient(at 100% 0%, rgba(139, 92, 246, 0.04) 0px, transparent 50%),
+      radial-gradient(at 50% 100%, rgba(0, 242, 254, 0.02) 0px, transparent 50%);
+    background-attachment: fixed;
   }
   html {
     @apply font-sans;
   }
 
   ::selection {
-    color: var(--brand-ink);
-    background: var(--brand-cyan);
+    color: #07090e;
+    background: #00f2fe;
   }
+
+  /* Custom esports scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: #07090e;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+    border-radius: 9999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: #00f2fe;
+  }
+}
+
+/* Esports Cyber Utilities */
+.esport-glow-cyan {
+  box-shadow: 0 0 25px -3px rgba(0, 242, 254, 0.35);
+}
+
+.esport-glow-violet {
+  box-shadow: 0 0 25px -3px rgba(139, 92, 246, 0.35);
+}
+
+.esport-border-glow {
+  position: relative;
+}
+.esport-border-glow::before {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(135deg, rgba(0, 242, 254, 0.4), rgba(139, 92, 246, 0.1), transparent);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+}
+
+.esport-grid-bg {
+  background-size: 40px 40px;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.025) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.025) 1px, transparent 1px);
+}
+
+.esport-dots-bg {
+  background-size: 24px 24px;
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+}
+
+.glass-panel {
+  background: rgba(13, 18, 29, 0.75);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+@keyframes pulseLive {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.5;
+  }
+}
+
+.pulse-dot {
+  animation: pulseLive 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
