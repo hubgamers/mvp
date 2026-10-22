@@ -1,3 +1,5 @@
+'use server'
+
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { tournaments } from "@prisma/client"
@@ -29,19 +31,39 @@ export async function saveTournament(data: SaveTournamentInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
-        await prisma.tournaments.upsert({
-            where: {
-                slug: data.slug
-            },
-            create: {
-                ...data,
-            },
-            update: {
-                ...data
-            }
+        const tournament = await prisma.$transaction(async (tx) => {
+            const saved = await tx.tournaments.upsert({
+                where: {
+                    slug: data.slug
+                },
+                create: {
+                    ...data,
+                },
+                update: {
+                    ...data
+                }
+            });
+
+            // S'assurer que le créateur est membre OWNER
+            await tx.tournaments_members.upsert({
+                where: {
+                    user_id_tournament_id: {
+                        user_id: user.id,
+                        tournament_id: saved.id
+                    }
+                },
+                create: {
+                    user_id: user.id,
+                    tournament_id: saved.id,
+                    role_code: "OWNER"
+                },
+                update: {}
+            });
+
+            return saved;
         });
 
-        return { success: true, message: "Tournoi sauvegardé avec succès." };
+        return { success: true, message: "Tournoi sauvegardé avec succès.", tournament };
     } catch (error) {
         console.error("Erreur saveTournament:", error);
         return { success: false, message: "Impossible de save le tournoi." };

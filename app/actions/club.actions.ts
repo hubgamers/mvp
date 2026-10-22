@@ -1,3 +1,5 @@
+'use server'
+
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,22 +18,42 @@ export async function saveClub(data: SaveClubInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
-        await prisma.clubs.upsert({
-            where: {
-                slug: data.slug
-            },
-            create: {
-                ...data,
-            },
-            update: {
-                name: data.name,
-                description: data.description,
-                recruit_open: data.recruit_open,
-                deleted: data.deleted
-            }
+        const club = await prisma.$transaction(async (tx) => {
+            const saved = await tx.clubs.upsert({
+                where: {
+                    slug: data.slug
+                },
+                create: {
+                    ...data,
+                },
+                update: {
+                    name: data.name,
+                    description: data.description,
+                    recruit_open: data.recruit_open,
+                    deleted: data.deleted
+                }
+            });
+
+            // Associer le créateur comme ADMIN de sa structure
+            await tx.clubs_members.upsert({
+                where: {
+                    user_id_club_id: {
+                        user_id: user.id,
+                        club_id: saved.id
+                    }
+                },
+                create: {
+                    user_id: user.id,
+                    club_id: saved.id,
+                    role_code: "ADMIN"
+                },
+                update: {}
+            });
+
+            return saved;
         });
 
-        return { success: true, message: "Club sauvegardée avec succès." };
+        return { success: true, message: "Club sauvegardé avec succès.", club };
     } catch (error) {
         console.error("Erreur saveClub:", error);
         return { success: false, message: "Impossible de save le club." };

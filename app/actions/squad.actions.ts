@@ -1,9 +1,13 @@
+'use server'
+
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { SquadMemberStatus } from "@prisma/client"
+import { revalidatePath } from "next/cache"
+import crypto from "crypto"
 
 interface SaveSquadInput {
-    id: string
+    id?: string
     name: string
     type_code: string
     game: string
@@ -21,19 +25,58 @@ export async function saveSquad(data: SaveSquadInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
-        await prisma.squads.upsert({
-            where: {
-                id: data.id
-            },
-            create: {
-                ...data,
-            },
-            update: {
-                ...data
-            }
+        const squadId = data.id || crypto.randomUUID();
+
+        const squad = await prisma.$transaction(async (tx) => {
+            const saved = await tx.squads.upsert({
+                where: {
+                    id: squadId
+                },
+                create: {
+                    id: squadId,
+                    name: data.name,
+                    type_code: data.type_code,
+                    game: data.game,
+                    platform: data.platform,
+                    nb_places: Number(data.nb_places) || 4,
+                    micro_required: Boolean(data.micro_required),
+                    level: data.level,
+                    role_searched: data.role_searched,
+                },
+                update: {
+                    name: data.name,
+                    type_code: data.type_code,
+                    game: data.game,
+                    platform: data.platform,
+                    nb_places: Number(data.nb_places) || 4,
+                    micro_required: Boolean(data.micro_required),
+                    level: data.level,
+                    role_searched: data.role_searched,
+                }
+            });
+
+            // S'assurer que le créateur est membre OWNER
+            await tx.squads_members.upsert({
+                where: {
+                    user_id_squad_id: {
+                        user_id: user.id,
+                        squad_id: saved.id
+                    }
+                },
+                create: {
+                    user_id: user.id,
+                    squad_id: saved.id,
+                    role_code: 'OWNER',
+                    status: 'JOINED'
+                },
+                update: {}
+            });
+
+            return saved;
         });
 
-        return { success: true, message: "Squad sauvegardée avec succès." };
+        revalidatePath("/dashboard/squads");
+        return { success: true, message: "Squad sauvegardée avec succès.", squad };
     } catch (error) {
         console.error("Erreur saveSquad:", error);
         return { success: false, message: "Impossible de save la squad." };
@@ -93,11 +136,11 @@ export async function joinSquad(id: string) {
                 create: {
                     user_id: user.id,
                     squad_id: id,
-                    role_code: 'USER',
+                    role_code: 'PLAYER',
                     status: SquadMemberStatus.INVITE
                 },
                 update: {
-                    role_code: 'USER',
+                    role_code: 'PLAYER',
                     status: SquadMemberStatus.INVITE
                 }
             }),
@@ -109,17 +152,21 @@ export async function joinSquad(id: string) {
                     code: invitationCode,
                     inviter_id: user.id,
                     target_type_code: 'SQUAD',
-                    target_id: id
+                    target_id: id,
+                    status: 'WAIT'
                 },
                 update: {
                     inviter_id: user.id,
                     target_type_code: 'SQUAD',
-                    target_id: id
+                    target_id: id,
+                    status: 'WAIT'
                 }
             })
         ]);
 
-        return { success: true, message: "Invitation à la squad créée/mise à jour avec succès." };
+        revalidatePath(`/dashboard/squads/${id}`);
+        revalidatePath('/dashboard/squads');
+        return { success: true, message: "Demande pour rejoindre l'escouade envoyée avec succès." };
     } catch (error) {
         console.error("Erreur joinSquad:", error);
         return { success: false, message: "Impossible de rejoindre la squad." };
@@ -143,7 +190,9 @@ export async function removeSquadMember(data: RemoveSquadMemberInput) {
             }
         });
 
-        return { success: true, message: "Membre de la squad supprimé avec succès." };
+        revalidatePath(`/dashboard/squads/${data.squad_id}`);
+        revalidatePath('/dashboard/squads');
+        return { success: true, message: "Membre retiré de l'escouade avec succès." };
     } catch (error) {
         console.error("Erreur removeSquadMember:", error);
         return { success: false, message: "Impossible de supprimer le membre de la squad." };

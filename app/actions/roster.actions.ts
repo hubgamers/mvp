@@ -1,3 +1,5 @@
+'use server'
+
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
 
@@ -16,22 +18,42 @@ export async function saveRoster(data: SaveRosterInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
-        await prisma.rosters.upsert({
-            where: {
-                slug: data.slug
-            },
-            create: {
-                ...data,
-            },
-            update: {
-                name: data.name,
-                platform: data.platform,
-                game: data.game,
-                deleted: data.deleted
-            }
+        const roster = await prisma.$transaction(async (tx) => {
+            const saved = await tx.rosters.upsert({
+                where: {
+                    slug: data.slug
+                },
+                create: {
+                    ...data,
+                },
+                update: {
+                    name: data.name,
+                    platform: data.platform,
+                    game: data.game,
+                    deleted: data.deleted
+                }
+            });
+
+            // Enregistrer automatiquement le créateur comme CAPTAIN
+            await tx.rosters_members.upsert({
+                where: {
+                    user_id_roster_id: {
+                        user_id: user.id,
+                        roster_id: saved.id
+                    }
+                },
+                create: {
+                    user_id: user.id,
+                    roster_id: saved.id,
+                    role_code: "CAPTAIN"
+                },
+                update: {}
+            });
+
+            return saved;
         });
 
-        return { success: true, message: "Roste sauvegardé avec succès." };
+        return { success: true, message: "Roster sauvegardé avec succès.", roster };
     } catch (error) {
         console.error("Erreur saveRoster:", error);
         return { success: false, message: "Impossible de save le roster." };

@@ -12,6 +12,7 @@ import {
   UsersRound,
   Clapperboard,
   Sparkles,
+  UserPlus,
 } from "lucide-react"
 
 import { NavMain } from "@/components/layout/nav-main"
@@ -61,6 +62,16 @@ const navigation = [
         ],
       },
       { title: "Mes Équipes & Lineups", url: "/dashboard/teams", icon: <UsersRound className="size-4 text-purple-400" /> },
+      {
+        title: "Squads & LFG",
+        url: "/dashboard/squads",
+        icon: <UserPlus className="size-4 text-cyan-400" />,
+        items: [
+          { title: "Explorer les escouades", url: "/dashboard/squads/explore" },
+          { title: "Mes escouades", url: "/dashboard/squads" },
+          { title: "Créer une escouade", url: "/dashboard/squads/new" },
+        ],
+      },
       { title: "Invitations Reçues", url: "/dashboard/invitations", icon: <Mail className="size-4" /> },
     ],
   },
