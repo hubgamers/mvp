@@ -36,6 +36,8 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TournamentManageActions } from "./tournament-manage-actions"
 import { getTournamentDetail } from "@/app/actions/tournament.actions"
 import { TournamentSponsorsTab } from "./TournamentSponsorsTab"
+import { TournamentStaffTab } from "./TournamentStaffTab"
+import { getInvitationsFromTournamentId } from "@/app/actions/invitation.actions"
 
 interface TournamentDetailPageProps {
   params: Promise<{
@@ -344,35 +346,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         <TournamentSponsorsTab tournament={tournament} />
 
         {/* 5. Onglet Staff */}
-        <TabsContent value="staff" className="space-y-4">
-          <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold text-white">Équipe d'organisation</CardTitle>
-              <CardDescription className="text-xs">
-                Administrateurs, arbitres officiels et commentateurs autorisés.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="divide-y divide-white/5">
-                {tournament.tournaments_members.map((member) => (
-                  <div key={member.user_id} className="py-3 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-sm text-white">
-                        {member.users.display_name}
-                      </span>
-                      <span className="text-xs text-muted-foreground block">
-                        {member.users.email}
-                      </span>
-                    </div>
-                    <Badge variant="outline" className="text-xs font-mono uppercase">
-                      {member.tournament_member_roles?.label || member.role_code}
-                    </Badge>
-                  </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TournamentStaffTab tournament={tournament} currentUserId={user.id} />
       </Tabs>
     </div>
   )

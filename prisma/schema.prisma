@@ -74,6 +74,7 @@ model invitations {
   id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   code                    String                  @unique @db.VarChar
   inviter_id              String                  @db.Uuid
+  email                   String                  @db.VarChar
   target_type_code        String                  @db.VarChar
   target_id               String                  @db.Uuid
   status                  String                  @db.VarChar

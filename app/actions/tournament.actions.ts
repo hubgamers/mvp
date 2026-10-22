@@ -211,7 +211,7 @@ export async function getGameListFromTournaments() {
 
 export async function getTournamentDetail(id: string) {
     try {
-        const tournament = await prisma.tournaments.findUnique({
+        let tournamentData = await prisma.tournaments.findUnique({
             where: { id },
             include: {
                 tournament_statuses: true,
@@ -264,6 +264,19 @@ export async function getTournamentDetail(id: string) {
                 },
             },
         })
+
+        // 2. Récupérer les invitations en attente pour ce tournoi
+        const invitations = await prisma.invitations.findMany({
+            where: {
+                target_id: id,
+                status: "WAIT",
+            }
+        });
+
+        const tournament = {
+            ...tournamentData,
+            invitations
+        }
 
         return {
             success: true,

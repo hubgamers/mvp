@@ -76,6 +76,24 @@ export async function acceptInvitation(code: string) {
             status: "JOINED",
           },
         })
+      } else if (invitation.target_type_code === "TOURNAMENT") {
+        // Ajout de l'utilisateur dans l'équipe du tournoi (tournaments_members)
+        await tx.tournaments_members.upsert({
+          where: {
+            user_id_tournament_id: {
+              user_id: user.id,
+              tournament_id: invitation.target_id,
+            },
+          },
+          create: {
+            user_id: user.id,
+            tournament_id: invitation.target_id,
+            role_code: "ARBITRE", // Ou tu peux stocker le rôle souhaité si tu as un champ dédié dans l'invitation
+          },
+          update: {
+            role_code: "ARBITRE",
+          },
+        })
       }
 
       await tx.invitations.update({
@@ -150,5 +168,25 @@ export async function createInvitation(data: CreateInvitationInput) {
   } catch (error) {
     console.error("Erreur createInvitation:", error)
     return { success: false, message: "Impossible de créer l'invitation." }
+  }
+}
+
+export async function getInvitationsFromTournamentId(id: string) {
+  try {
+    const invitations = await prisma.invitations.findMany({
+      where: {
+        target_type_code: 'TOURNAMENT',
+        target_id: id
+      }
+    });
+
+    return {
+      success: true,
+      message: "Affichage des invitations du tournois avec succès.",
+      invitations
+    };
+  } catch (error) {
+    console.error("Erreur getInvitationsFromTournamentId:", error);
+    return { success: false, message: "Impossible d'afficher les invitations.", games: [] };
   }
 }
