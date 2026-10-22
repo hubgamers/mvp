@@ -95,11 +95,21 @@ export async function getMyTournaments(): Promise<TournamentDetail[]> {
     const tournaments = await prisma.tournaments.findMany({
       where: {
         deleted_at: null,
-        created_by: user.id,
+        OR: [
+          { created_by: user.id }, // Soit il est le créateur
+          {
+            tournament_members: {
+              some: {
+                user_id: user.id, // Soit il fait partie des membres du tournoi
+              },
+            },
+          },
+        ],
       },
       orderBy: {
         starts_at: 'asc',
       },
+      distinct: ['id'], // Évite les doublons au cas où le créateur est aussi explicitement dans tournament_members
     })
 
     return tournaments.map((tournament) => ({
@@ -188,34 +198,42 @@ export async function getTournamentById(idOrSlug: string) {
     if (!tournament) return null
     const [teamMembership, structureMembership] = user
       ? await Promise.all([
-          !tournament.is_public
-            ? prisma.team_members.findFirst({
-                where: {
-                  user_id: user.id,
-                  team_id: { in: tournament.tournament_registrations.map((registration) => registration.team_id) },
-                },
-                select: { team_id: true },
-              })
-            : Promise.resolve(null),
-          tournament.organizer_structure_id
-            ? prisma.structure_members.findUnique({
-                where: {
-                  structure_id_user_id: {
-                    structure_id: tournament.organizer_structure_id,
-                    user_id: user.id,
-                  },
-                },
-                select: { role: true },
-              })
-            : Promise.resolve(null),
-        ])
+        !tournament.is_public
+          ? prisma.team_members.findFirst({
+            where: {
+              user_id: user.id,
+              team_id: { in: tournament.tournament_registrations.map((registration) => registration.team_id) },
+            },
+            select: { team_id: true },
+          })
+          : Promise.resolve(null),
+        tournament.organizer_structure_id
+          ? prisma.structure_members.findUnique({
+            where: {
+              structure_id_user_id: {
+                structure_id: tournament.organizer_structure_id,
+                user_id: user.id,
+              },
+            },
+            select: { role: true },
+          })
+          : Promise.resolve(null),
+      ])
       : [null, null]
+
     const isStructureAdmin =
       structureMembership?.role === "OWNER" || structureMembership?.role === "ADMIN"
     const currentTournamentMembership = tournament.tournament_members.find(
       (membership) => membership.user_id === user?.id,
     )
     const isTournamentCreator = tournament.created_by === user?.id
+
+    // Définition globale des droits d'administration
+    const isAdmin =
+      isTournamentCreator ||
+      isStructureAdmin ||
+      currentTournamentMembership?.role === "ADMIN"
+
     if (
       !tournament.is_public &&
       !isTournamentCreator &&
@@ -225,14 +243,15 @@ export async function getTournamentById(idOrSlug: string) {
     ) {
       return null
     }
+
     const { matches, tournament_members: tournamentMembers, ...tournamentData } = tournament
 
     return {
       ...tournamentData,
       creator: tournament.profiles,
       prize_pool: tournament.prize_pool?.toNumber() ?? null,
-      isAdmin: isTournamentCreator,
-      canManageStaff: isTournamentCreator || isStructureAdmin || currentTournamentMembership?.role === "ADMIN",
+      isAdmin,
+      canManageStaff: isAdmin, // S'ils ont les droits admin, ils peuvent aussi gérer le staff
       staffMembers: tournamentMembers.map((membership) => ({
         userId: membership.user_id,
         name: membership.profiles.display_name || membership.profiles.username || "Membre",
@@ -439,4 +458,73 @@ export async function createTournament(prevState: any, formData: FormData) {
   }
   revalidatePath("/dashboard/tournaments")
   redirect(`/dashboard/tournaments/${tournamentId}`)
+}
+
+export async function updateTournamentStaffRole(
+  tournamentId: string,
+  targetUserId: string,
+  newRole: "ADMIN" | "ARBITRE"
+) {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { success: false, message: "Non authentifié." }
+
+  if (newRole !== "ADMIN" && newRole !== "ARBITRE") {
+    return { success: false, message: "Rôle invalide." }
+  }
+
+  try {
+    // 1. Récupérer le tournoi pour vérifier les permissions
+    const tournament = await prisma.tournaments.findFirst({
+      where: { id: tournamentId, deleted_at: null },
+      select: { created_by: true, organizer_structure_id: true },
+    })
+    if (!tournament) return { success: false, message: "Tournoi introuvable." }
+
+    // 2. Vérifier si l'utilisateur actuel a le droit de gérer le staff
+    const [structureMembership, tournamentMembership] = await Promise.all([
+      tournament.organizer_structure_id
+        ? prisma.structure_members.findUnique({
+            where: {
+              structure_id_user_id: {
+                structure_id: tournament.organizer_structure_id,
+                user_id: user.id,
+              },
+            },
+            select: { role: true },
+          })
+        : Promise.resolve(null),
+      prisma.tournament_members.findUnique({
+        where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: user.id } },
+        select: { role: true },
+      }),
+    ])
+
+    const canManageStaff =
+      tournament.created_by === user.id ||
+      structureMembership?.role === "OWNER" ||
+      structureMembership?.role === "ADMIN" ||
+      tournamentMembership?.role === "ADMIN"
+
+    if (!canManageStaff) {
+      return { success: false, message: "Action non autorisée." }
+    }
+
+    // 3. Mettre à jour le rôle dans tournament_members
+    await prisma.tournament_members.update({
+      where: {
+        tournament_id_user_id: {
+          tournament_id: tournamentId,
+          user_id: targetUserId,
+        },
+      },
+      data: { role: newRole },
+    })
+
+    revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+    return { success: true, message: "Rôle mis à jour." }
+  } catch (error) {
+    console.error("Erreur updateTournamentStaffRole:", error)
+    return { success: false, message: "Impossible de modifier le rôle." }
+  }
 }

@@ -134,6 +134,7 @@ export async function inviteTournamentStaff(
 
   const email = String(formData.get("email") || "").trim().toLowerCase()
   const role = String(formData.get("role") || "")
+  console.log({ tournamentId, email, role })
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return { success: false, message: "Saisissez une adresse e-mail valide." }
   }
@@ -153,14 +154,14 @@ export async function inviteTournamentStaff(
     const [structureMembership, tournamentMembership] = await Promise.all([
       tournament.organizer_structure_id
         ? prisma.structure_members.findUnique({
-            where: {
-              structure_id_user_id: {
-                structure_id: tournament.organizer_structure_id,
-                user_id: user.id,
-              },
+          where: {
+            structure_id_user_id: {
+              structure_id: tournament.organizer_structure_id,
+              user_id: user.id,
             },
-            select: { role: true },
-          })
+          },
+          select: { role: true },
+        })
         : Promise.resolve(null),
       prisma.tournament_members.findUnique({
         where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: user.id } },
@@ -179,13 +180,17 @@ export async function inviteTournamentStaff(
       }
     }
 
-    const targetUser = await prisma.users.findFirst({
-      where: { email },
-      select: { id: true },
-    })
-    if (targetUser) {
+    const { data: authData, error: authError } = await supabase.auth.admin.listUsers()
+
+    if (authError) {
+      console.error("Erreur listUsers:", authError)
+    }
+
+    // 2. Trouver l'utilisateur spécifique par son e-mail dans le tableau
+    const targetAuthUser = authData?.users?.find((u) => u.email === email)
+    if (targetAuthUser) {
       const existingMember = await prisma.tournament_members.findUnique({
-        where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: targetUser.id } },
+        where: { tournament_id_user_id: { tournament_id: tournamentId, user_id: targetAuthUser.id } },
         select: { user_id: true },
       })
       if (existingMember) {
@@ -198,7 +203,6 @@ export async function inviteTournamentStaff(
         email,
         target_type: "TOURNAMENT",
         target_id: tournamentId,
-        team_id: null,
         role: { in: ["ADMIN", "ARBITRE"] },
         status: "PENDING",
         expires_at: { gt: new Date() },
@@ -281,7 +285,7 @@ export async function getMyInvitations() {
     const enrichedInvitations = await Promise.all(
       invitations.map(async (inv) => {
         let targetName = "Inconnu"
-        
+
         if (inv.target_type === 'TEAM') {
           const team = await prisma.teams.findUnique({
             where: { id: inv.target_id },
@@ -302,19 +306,11 @@ export async function getMyInvitations() {
           if (tournament) targetName = tournament.name
         }
 
-        const team = inv.target_type === "TOURNAMENT" && inv.team_id
-          ? await prisma.teams.findUnique({
-              where: { id: inv.team_id },
-              select: { name: true },
-            })
-          : null
-
         return {
           id: inv.id,
           type: inv.target_type,
           role: inv.role,
           targetName,
-          teamName: team?.name,
         }
       })
     )
@@ -352,82 +348,17 @@ export async function respondToInvitation(invitationId: string, action: 'ACCEPTE
     if (action === 'ACCEPTED') {
       await prisma.$transaction(async (tx) => {
         if (invite.target_type === 'TOURNAMENT') {
-          if (!invite.team_id) {
-            if (invite.role !== "ADMIN" && invite.role !== "ARBITRE") {
-              throw new Error("Cette invitation d’organisation est invalide.")
-            }
-
-            const tournament = await tx.tournaments.findFirst({
-              where: { id: invite.target_id, deleted_at: null },
-              select: { id: true },
-            })
-            if (!tournament) {
-              throw new Error("Ce tournoi n’existe plus.")
-            }
-            await tx.tournament_members.upsert({
-              where: {
-                tournament_id_user_id: {
-                  tournament_id: tournament.id,
-                  user_id: user.id,
-                },
-              },
-              update: { role: invite.role },
-              create: {
-                tournament_id: tournament.id,
-                user_id: user.id,
-                role: invite.role,
-              },
-            })
-          } else {
-            const [team, tournament, existingRegistration] = await Promise.all([
-              tx.teams.findFirst({
-                where: {
-                  id: invite.team_id,
-                  created_by: user.id,
-                  deleted_at: null,
-                },
-                select: { id: true, game: true },
-              }),
-              tx.tournaments.findFirst({
-                where: {
-                  id: invite.target_id,
-                  deleted_at: null,
-                  status: { in: ["DRAFT", "REGISTRATION_OPEN"] },
-                },
-                select: { id: true, game: true },
-              }),
-              tx.tournament_registrations.findUnique({
-                where: {
-                  tournament_id_team_id: {
-                    tournament_id: invite.target_id,
-                    team_id: invite.team_id,
-                  },
-                },
-                select: { id: true },
-              }),
-            ])
-
-            if (!team) {
-              throw new Error("Seul le propriétaire de l'équipe invitée peut répondre à cette invitation.")
-            }
-            if (!tournament) {
-              throw new Error("Le tournoi n'accepte plus d'inscriptions.")
-            }
-            if (team.game.toLowerCase() !== tournament.game.toLowerCase()) {
-              throw new Error("Cette équipe ne joue pas au même jeu que le tournoi.")
-            }
-            if (existingRegistration) {
-              throw new Error("Cette équipe est déjà inscrite à ce tournoi.")
-            }
-
-            await tx.tournament_registrations.create({
+          try {
+            await tx.tournament_members.create({
               data: {
-                tournament_id: tournament.id,
-                team_id: team.id,
-                registered_by: user.id,
-                status: "APPROVED",
-              },
+                tournament_id: invite.target_id,
+                user_id: user.id,
+                role: (invite.role as any) || 'ARBITRE'
+              }
             })
+          } catch (e: any) {
+            // Ignore si la relation existe déjà (code d'erreur unique constraint PostgreSQL)
+            if (e.code !== 'P2002') throw e
           }
         } else if (invite.target_type === 'TEAM') {
           // Ajout dans le roster de l'équipe (`team_members`)
@@ -480,7 +411,7 @@ export async function respondToInvitation(invitationId: string, action: 'ACCEPTE
         // Mettre à jour le statut de l'invitation après son traitement.
         await tx.invitations.update({
           where: { id: invitationId },
-          data: { 
+          data: {
             status: action,
             accepted_at: new Date(),
             accepted_by: user.id,

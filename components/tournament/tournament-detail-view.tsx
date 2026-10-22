@@ -10,6 +10,7 @@ import { Gamepad2, Monitor, Calendar, Users, ArrowLeft, Trophy, UserPlus, Clappe
 import InviteTeamForm from "./invite-team-form"
 import { InviteTournamentStaffForm } from "./invite-staff-form"
 import { TournamentBracket } from "./details/tournament-bracket"
+import { TournamentStaffItem } from "./details/tournament-staff-item"
 
 interface TournamentDetailViewProps {
   tournament: TournamentDetail & {
@@ -44,8 +45,8 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
           render={<Link href="/dashboard/tournaments" />}
           className="mb-2"
         >
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Retour aux tournois
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Retour aux tournois
         </Button>
       </div>
 
@@ -247,10 +248,12 @@ export function TournamentDetailView({ tournament }: TournamentDetailViewProps) 
               {tournament.staffMembers?.length ? (
                 <div className="space-y-2 border-t pt-4">
                   {tournament.staffMembers.map((member) => (
-                    <div key={member.userId} className="flex items-center justify-between rounded-lg border p-3">
-                      <span className="font-medium">{member.name}</span>
-                      <Badge variant="outline">{member.role === "ADMIN" ? "Administrateur" : "Arbitre"}</Badge>
-                    </div>
+                    <TournamentStaffItem
+                      key={member.userId}
+                      tournamentId={tournament.id}
+                      member={member}
+                      canManageStaff={tournament.canManageStaff}
+                    />
                   ))}
                 </div>
               ) : (
