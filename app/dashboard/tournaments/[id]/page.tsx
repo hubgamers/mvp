@@ -21,6 +21,7 @@ import {
   Radio,
   Coins,
   Building,
+  Edit,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -33,6 +34,8 @@ import {
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TournamentManageActions } from "./tournament-manage-actions"
+import { getTournamentDetail } from "@/app/actions/tournament.actions"
+import { TournamentSponsorsTab } from "./TournamentSponsorsTab"
 
 interface TournamentDetailPageProps {
   params: Promise<{
@@ -51,59 +54,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
     redirect("/login")
   }
 
-  const tournament = await prisma.tournaments.findUnique({
-    where: { id },
-    include: {
-      tournament_statuses: true,
-      tournaments_members: {
-        include: {
-          tournament_member_roles: true,
-          users: { select: { id: true, display_name: true, email: true } },
-        },
-      },
-      tournaments_registrations: {
-        include: {
-          tournament_registration_statuses: true,
-          rosters: {
-            include: {
-              rosters_members: {
-                include: {
-                  team_roles: true,
-                  users: { select: { display_name: true } },
-                },
-              },
-            },
-          },
-        },
-        orderBy: { created_at: "asc" },
-      },
-      tournaments_stages: {
-        include: {
-          tournament_stage_types: true,
-          tournament_stage_statuses: true,
-          bo_options: true,
-          tournaments_matches: {
-            include: {
-              match_statuses: true,
-              rosters_tournaments_matches_roster1_idTorosters: true,
-              rosters_tournaments_matches_roster2_idTorosters: true,
-              rosters_tournaments_matches_winner_roster_idTorosters: true,
-              tournaments_match_games: true,
-            },
-            orderBy: { round_number: "asc" },
-          },
-        },
-        orderBy: { created_at: "asc" },
-      },
-      tournament_sponsors: {
-        include: { sponsors: true },
-      },
-      tournament_streams: true,
-      tournament_prizes: {
-        orderBy: { position: "asc" },
-      },
-    },
-  })
+  const tournament = (await getTournamentDetail(id)).tournament;
 
   if (!tournament) {
     notFound()
@@ -141,6 +92,12 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="border-white/10 text-xs">
+            <Link href={`/tournaments/${tournament.slug}/edit`}>
+              <Edit className="size-3.5 mr-1.5" />
+              Editer
+            </Link>
+          </Button>
           <Button asChild variant="outline" size="sm" className="border-white/10 text-xs">
             <Link href={`/tournaments/${tournament.slug}`} target="_blank">
               <ExternalLink className="size-3.5 mr-1.5" />
@@ -384,38 +341,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </TabsContent>
 
         {/* 4. Onglet Sponsors */}
-        <TabsContent value="sponsors" className="space-y-4">
-          <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold text-white">Sponsors et partenaires</CardTitle>
-              <CardDescription className="text-xs">
-                Logos et marques affichés sur vos pages et overlays OBS.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tournament.tournament_sponsors.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">
-                  Aucun sponsor rattaché à ce tournoi.
-                </div>
-              ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  {tournament.tournament_sponsors.map((ts) => (
-                    <div
-                      key={ts.sponsor_id}
-                      className="p-4 rounded-xl bg-black/30 border border-white/5 flex items-center gap-3"
-                    >
-                      <Building className="size-6 text-amber-400 shrink-0" />
-                      <div>
-                        <div className="font-bold text-sm text-white">{ts.sponsors.name}</div>
-                        <div className="text-[11px] text-muted-foreground">{ts.tier || "Partenaire"}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
+        <TournamentSponsorsTab tournament={tournament} />
 
         {/* 5. Onglet Staff */}
         <TabsContent value="staff" className="space-y-4">

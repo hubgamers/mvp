@@ -55,7 +55,7 @@ export async function saveTournament(data: SaveTournamentInput) {
                 create: {
                     user_id: user.id,
                     tournament_id: saved.id,
-                    role_code: "OWNER"
+                    role_code: "ADMIN"
                 },
                 update: {}
             });
@@ -198,13 +198,80 @@ export async function getGameListFromTournaments() {
             where: { game: { not: null } },
         });
 
-        return { 
-            success: true, 
-            message: "Affichage des jeux avec succès.", 
-            games: gamesList.map(g => g.game).filter(Boolean) as string[] 
+        return {
+            success: true,
+            message: "Affichage des jeux avec succès.",
+            games: gamesList.map(g => g.game).filter(Boolean) as string[]
         };
     } catch (error) {
         console.error("Erreur getGameListFromTournaments:", error);
         return { success: false, message: "Impossible d'afficher les jeux.", games: [] };
+    }
+}
+
+export async function getTournamentDetail(id: string) {
+    try {
+        const tournament = await prisma.tournaments.findUnique({
+            where: { id },
+            include: {
+                tournament_statuses: true,
+                tournaments_members: {
+                    include: {
+                        tournament_member_roles: true,
+                        users: { select: { id: true, display_name: true, email: true } },
+                    },
+                },
+                tournaments_registrations: {
+                    include: {
+                        tournament_registration_statuses: true,
+                        rosters: {
+                            include: {
+                                rosters_members: {
+                                    include: {
+                                        team_roles: true,
+                                        users: { select: { display_name: true } },
+                                    },
+                                },
+                            },
+                        },
+                    },
+                    orderBy: { created_at: "asc" },
+                },
+                tournaments_stages: {
+                    include: {
+                        tournament_stage_types: true,
+                        tournament_stage_statuses: true,
+                        bo_options: true,
+                        tournaments_matches: {
+                            include: {
+                                match_statuses: true,
+                                rosters_tournaments_matches_roster1_idTorosters: true,
+                                rosters_tournaments_matches_roster2_idTorosters: true,
+                                rosters_tournaments_matches_winner_roster_idTorosters: true,
+                                tournaments_match_games: true,
+                            },
+                            orderBy: { round_number: "asc" },
+                        },
+                    },
+                    orderBy: { created_at: "asc" },
+                },
+                tournament_sponsors: {
+                    include: { sponsors: true },
+                },
+                tournament_streams: true,
+                tournament_prizes: {
+                    orderBy: { position: "asc" },
+                },
+            },
+        })
+
+        return {
+            success: true,
+            message: "Affichage des tournois avec succès.",
+            tournament: tournament
+        };
+    } catch (error) {
+        console.error("Erreur getTournamentDetail:", error);
+        return { success: false, message: "Impossible d'afficher les tournois.", games: [] };
     }
 }

@@ -1,6 +1,4 @@
 import Link from "next/link"
-import { redirect } from "next/navigation"
-import { createClient } from "@/utils/supabase/server"
 import { getDashboardData } from "@/app/actions/dashboard.actions"
 import {
   Trophy,
@@ -29,33 +27,25 @@ export const metadata = {
   description: "Tableau de bord de pilotage esport, tournois et équipes.",
 }
 
+
 export default async function DashboardPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) {
-    redirect("/login")
-  }
-
   // Récupération des données via l'action serveur
   const {
     userProfile,
-    userTournaments,
-    userRosters,
-    userClubs,
-    userSquads,
-    pendingInvitations,
-    upcomingMatches,
-  } = await getDashboardData(user.id)
+    userTournaments = [],
+    userRosters = [],
+    userClubs = [],
+    userSquads = [],
+    pendingInvitations = [],
+    upcomingMatches = [],
+  } = (await getDashboardData()) || {}
 
-  const displayName = userProfile?.display_name || user.email?.split("@")[0] || "Gamer"
+  const displayName = userProfile?.display_name || "Gamer"
 
   const stats = [
     {
       title: "Mes Compétitions",
-      value: userTournaments.length,
+      value: userTournaments?.length || 0,
       icon: Trophy,
       color: "text-amber-400",
       bg: "bg-amber-400/10 border-amber-400/20",
@@ -63,7 +53,7 @@ export default async function DashboardPage() {
     },
     {
       title: "Rosters Actifs",
-      value: userRosters.length,
+      value: userRosters?.length || 0,
       icon: UsersRound,
       color: "text-purple-400",
       bg: "bg-purple-400/10 border-purple-400/20",
@@ -71,7 +61,7 @@ export default async function DashboardPage() {
     },
     {
       title: "Structures Esport",
-      value: userClubs.length,
+      value: userClubs?.length || 0,
       icon: Building2,
       color: "text-emerald-400",
       bg: "bg-emerald-400/10 border-emerald-400/20",
@@ -87,7 +77,7 @@ export default async function DashboardPage() {
     },
     {
       title: "Invitations Ouvertes",
-      value: pendingInvitations.length,
+      value: pendingInvitations?.length || 0,
       icon: Mail,
       color: "text-cyan-400",
       bg: "bg-cyan-400/10 border-cyan-400/20",
@@ -205,12 +195,12 @@ export default async function DashboardPage() {
                     <div className="flex items-center gap-4 min-w-0">
                       <div className="text-center shrink-0">
                         <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                          {m.match_statuses.label}
+                          {m.match_statuses?.label || "Statut"}
                         </Badge>
                       </div>
                       <div className="min-w-0">
                         <div className="text-xs font-semibold text-slate-400 truncate">
-                          {m.tournaments_stages.tournaments.name} · {m.tournaments_stages.name || "Phase"}
+                          {m.tournaments_stages?.tournaments?.name || "Tournoi"} · {m.tournaments_stages?.name || "Phase"}
                         </div>
                         <div className="text-sm font-bold text-white flex items-center gap-2 mt-0.5">
                           <span className="text-cyan-400">{m.rosters_tournaments_matches_roster1_idTorosters?.name || "TBD"}</span>
@@ -269,7 +259,7 @@ export default async function DashboardPage() {
                     >
                       <div className="flex items-center justify-between gap-2 mb-2">
                         <Badge variant="outline" className="text-[10px]">
-                          {t.tournament_statuses.label}
+                          {t.tournament_statuses?.label || "Inconnu"}
                         </Badge>
                         {t.game && (
                           <span className="text-[11px] text-cyan-400 font-medium">
@@ -281,7 +271,7 @@ export default async function DashboardPage() {
                         {t.name}
                       </h3>
                       <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-2 border-t border-white/5">
-                        <span>{t._count.tournaments_registrations} équipes</span>
+                        <span>{t._count?.tournaments_registrations || 0} équipes</span>
                         <span className="font-semibold text-white">
                           {t.cashprize ? `${Number(t.cashprize)} €` : "Sans cashprize"}
                         </span>
@@ -330,7 +320,7 @@ export default async function DashboardPage() {
                     <div>
                       <div className="font-bold text-sm text-white">{roster.name}</div>
                       <div className="text-[11px] text-muted-foreground">
-                        {roster.game || "Multi-jeu"} · {roster.rosters_members.length} joueurs
+                        {roster.game || "Multi-jeu"} · {roster.rosters_members?.length || 0} joueurs
                       </div>
                     </div>
                     <ArrowRight className="size-3.5 text-muted-foreground" />
@@ -383,7 +373,7 @@ export default async function DashboardPage() {
                   {pendingInvitations.slice(0, 3).map((inv: any) => (
                     <div key={inv.id} className="p-2.5 rounded-lg bg-black/20 border border-white/5 flex items-center justify-between text-xs">
                       <div>
-                        <span className="font-semibold text-white block">Invitation {inv.invitation_target_types.label}</span>
+                        <span className="font-semibold text-white block">Invitation {inv.invitation_target_types?.label || ""}</span>
                         <span className="font-mono text-[10px] text-cyan-400">Code: {inv.code}</span>
                       </div>
                       <Button asChild size="sm" variant="outline" className="h-7 text-[11px]">

@@ -5,13 +5,9 @@ import {
   Tv,
   Users,
   ShieldCheck,
-  Zap,
   ArrowRight,
   Flame,
   Swords,
-  Layers,
-  Sparkles,
-  CheckCircle2,
   ChevronRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";

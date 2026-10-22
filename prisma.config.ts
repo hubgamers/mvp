@@ -6,6 +6,9 @@ dotenv.config({ path: path.resolve(process.cwd(), '.env') });
 
 export default {
   schema: "prisma/schema.prisma",
+  migrations: {
+    seed: 'npx tsx prisma/seed.ts',
+  },
   datasource: {
     url: process.env.DIRECT_URL || process.env.DATABASE_URL,
   },
