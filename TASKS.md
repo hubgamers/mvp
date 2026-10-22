@@ -20,7 +20,7 @@ Ce backlog décrit l’écart entre l’application actuelle et un MVP utilisabl
 
 ### 1. Accès, rôles et invitations
 
-- [ ] **Centraliser les règles d’autorisation** pour les tournois et les appliquer aux pages, aux listes et aux Server Actions : créateur, administrateur de la structure organisatrice, ADMIN et ARBITRE.
+- [OK] **Centraliser les règles d’autorisation** pour les tournois et les appliquer aux pages, aux listes et aux Server Actions : créateur, administrateur de la structure organisatrice, ADMIN et ARBITRE.
 - [ ] **Appliquer les capacités propres à chaque rôle :** ADMIN peut gérer le tournoi et son équipe ; ARBITRE peut accéder aux matchs assignés/au périmètre prévu et traiter les scores ou litiges, sans pouvoir modifier les paramètres du tournoi ni sa facturation.
 - [ ] **Réserver la modification du tournoi aux personnes habilitées**, et non uniquement à son créateur ; contrôler également les actions de gestion du tournoi côté serveur.
 - [ ] **Compléter la gestion des membres du tournoi :** consulter les invitations en attente, retirer un membre et modifier son rôle avec contrôle d’autorisation.
@@ -32,7 +32,7 @@ Ce backlog décrit l’écart entre l’application actuelle et un MVP utilisabl
 
 ### 2. Page publique et inscription au tournoi
 
-- [ ] **Remplacer la page d’accueil de démonstration** par une page d’accueil HubGamers avec accès clair à la découverte des tournois et à la connexion/inscription.
+- [OK] **Remplacer la page d’accueil de démonstration** par une page d’accueil HubGamers avec accès clair à la découverte des tournois et à la connexion/inscription.
 - [ ] **Créer une page publique de tournoi par slug** (sans connexion) avec jeu, plateforme, format, dates/fuseau, règlement, récompenses, statut, équipes inscrites et arbre lorsque disponible.
 - [ ] **Définir le comportement des tournois privés** : non listés/non accessibles aux personnes non autorisées, même en connaissant l’URL.
 - [ ] **Compléter le flux d’inscription des équipes** : inscription depuis la page publique ou réponse à une invitation, selon le mode choisi par l’organisateur ; vérifier jeu, plateforme, taille du roster, dates, statut, capacité maximale et absence de doublon côté serveur.

@@ -16,20 +16,19 @@ export async function AppSidebarContent() {
   }
 
   const profile = user
-    ? await prisma.profiles.findUnique({
+    ? await prisma.users.findUnique({
         where: { id: user.id },
-        select: { username: true, display_name: true, avatar_url: true },
+        select: { display_name: true},
       })
     : null
 
   const userData = {
     name:
       profile?.display_name ||
-      profile?.username ||
       user?.email?.split("@")[0] ||
       "Utilisateur",
     email: user?.email || "",
-    avatar: profile?.avatar_url || "",
+    avatar:  "",
   }
 
   return <AppSidebar user={userData} />

@@ -8,616 +8,588 @@ datasource db {
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model audit_logs {
-  id          BigInt    @id @default(autoincrement())
-  actor_id    String?   @db.Uuid
-  entity_type String    @db.VarChar(80)
-  entity_id   String?   @db.Uuid
-  action      String    @db.VarChar(80)
-  details     Json      @default("{}")
-  created_at  DateTime  @default(now()) @db.Timestamptz(6)
-  profiles    profiles? @relation(fields: [actor_id], references: [id], onUpdate: NoAction)
-
-  @@index([actor_id, created_at(sort: Desc)], map: "audit_logs_actor_idx")
-  @@index([entity_type, entity_id, created_at(sort: Desc)], map: "audit_logs_entity_idx")
+model bo_options {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
 }
 
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model club_roles {
+  code          String          @id @db.VarChar
+  label         String          @db.VarChar
+  is_default    Boolean?        @default(false)
+  clubs_members clubs_members[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clubs {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String          @db.VarChar
+  description   String?
+  slug          String          @unique @db.VarChar
+  recruit_open  Boolean?        @default(false)
+  created_at    DateTime?       @default(now())  @db.Timestamp(6)
+  updated_at    DateTime?       @updatedAt  @db.Timestamp(6)
+  deleted       Boolean         @default(false)
+  clubs_members clubs_members[]
+  rosters       rosters[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clubs_members {
+  user_id    String     @db.Uuid
+  club_id    String     @db.Uuid
+  role_code  String     @db.VarChar
+  created_at DateTime?  @default(now())  @db.Timestamp(6)
+  updated_at DateTime?  @updatedAt  @db.Timestamp(6)
+  clubs      clubs      @relation(fields: [club_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  club_roles club_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, club_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dispute_statuses {
+  code           String           @id @db.VarChar
+  label          String           @db.VarChar
+  is_default     Boolean?         @default(false)
+  match_disputes match_disputes[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invitation_target_types {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  invitations invitations[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model invitations {
-  id                                         String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                                      String                 @db.Citext
-  target_type                                invitation_target_type
-  target_id                                  String                 @db.Uuid
-  invited_by                                 String                 @db.Uuid
-  role                                       String?                @db.VarChar(32)
-  token_hash                                 String                 @unique
-  status                                     invitation_status      @default(PENDING)
-  expires_at                                 DateTime               @default(dbgenerated("(now() + '7 days'::interval)")) @db.Timestamptz(6)
-  accepted_by                                String?                @db.Uuid
-  accepted_at                                DateTime?              @db.Timestamptz(6)
-  created_at                                 DateTime               @default(now()) @db.Timestamptz(6)
-  profiles_invitations_accepted_byToprofiles profiles?              @relation("invitations_accepted_byToprofiles", fields: [accepted_by], references: [id], onUpdate: NoAction)
-  profiles_invitations_invited_byToprofiles  profiles               @relation("invitations_invited_byToprofiles", fields: [invited_by], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([email, status])
-  @@index([target_type, target_id], map: "invitations_target_idx")
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String                  @unique @db.VarChar
+  inviter_id              String                  @db.Uuid
+  target_type_code        String                  @db.VarChar
+  target_id               String                  @db.Uuid
+  status                  String                  @db.VarChar
+  max_uses                Int?                    @default(1)
+  uses_count              Int?                    @default(0)
+  expires_at              DateTime?               @db.Timestamp(6)
+  created_at              DateTime?               @default(now())  @db.Timestamp(6)
+  users                   users                   @relation(fields: [inviter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invitation_target_types invitation_target_types @relation(fields: [target_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model match_games {
-  id           String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  match_id     String      @db.Uuid
-  game_number  Int         @db.SmallInt
-  score_a      Int         @default(0)
-  score_b      Int         @default(0)
-  winner_side  match_side?
-  map_name     String?     @db.VarChar(100)
-  started_at   DateTime?   @db.Timestamptz(6)
-  completed_at DateTime?   @db.Timestamptz(6)
-  metadata     Json        @default("{}")
-  matches      matches     @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([match_id, game_number])
-  @@index([match_id, game_number], map: "match_games_match_idx")
+enum InvitationStatus {
+  WAIT
+  ACCEPTED
+  REFUSED
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model match_messages {
-  id         String   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  match_id   String   @db.Uuid
-  sender_id  String   @db.Uuid
-  content    String   @db.VarChar(1000)
-  created_at DateTime @default(now()) @db.Timestamptz(6)
-  matches    matches  @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  profiles   profiles @relation(fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model match_arbiters {
+  match_id            String              @db.Uuid
+  user_id             String              @db.Uuid
+  assigned_at         DateTime?           @default(now())  @db.Timestamp(6)
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@index([match_id, created_at], map: "match_messages_match_created_idx")
+  @@id([match_id, user_id])
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model match_slots {
-  id                                           String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  match_id                                     String                    @db.Uuid
-  side                                         match_side
-  registration_id                              String?                   @db.Uuid
-  source                                       match_slot_source         @default(MANUAL)
-  source_match_id                              String?                   @db.Uuid
-  source_outcome                               qualification_outcome?
-  source_stage_id                              String?                   @db.Uuid
-  source_group_id                              String?                   @db.Uuid
-  source_rank                                  Int?
-  resolved_at                                  DateTime?                 @db.Timestamptz(6)
-  created_at                                   DateTime                  @default(now()) @db.Timestamptz(6)
-  matches_match_slots_match_idTomatches        matches                   @relation("match_slots_match_idTomatches", fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournament_registrations                     tournament_registrations? @relation(fields: [registration_id], references: [id], onUpdate: NoAction)
-  stage_groups                                 stage_groups?             @relation(fields: [source_group_id], references: [id], onUpdate: NoAction)
-  matches_match_slots_source_match_idTomatches matches?                  @relation("match_slots_source_match_idTomatches", fields: [source_match_id], references: [id], onUpdate: NoAction)
-  tournament_stages                            tournament_stages?        @relation(fields: [source_stage_id], references: [id], onUpdate: NoAction)
-
-  @@unique([match_id, side])
-  @@index([registration_id], map: "match_slots_registration_idx")
-  @@index([source_match_id], map: "match_slots_source_match_idx")
+model match_disputes {
+  id                                             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id                                       String              @db.Uuid
+  opened_by_user_id                              String?             @db.Uuid
+  handled_by_user_id                             String?             @db.Uuid
+  reason                                         String
+  status_code                                    String              @db.VarChar
+  resolution_notes                               String?
+  created_at                                     DateTime?           @default(now())  @db.Timestamp(6)
+  updated_at                                     DateTime?           @updatedAt  @db.Timestamp(6)
+  users_match_disputes_handled_by_user_idTousers users?              @relation("match_disputes_handled_by_user_idTousers", fields: [handled_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_matches                            tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_match_disputes_opened_by_user_idTousers  users?              @relation("match_disputes_opened_by_user_idTousers", fields: [opened_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispute_statuses                               dispute_statuses    @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model matches {
-  id                                               String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tournament_id                                    String                    @db.Uuid
-  stage_id                                         String                    @db.Uuid
-  group_id                                         String?                   @db.Uuid
-  name                                             String?                   @db.VarChar(120)
-  round_number                                     Int?
-  match_order                                      Int
-  status                                           match_status              @default(PENDING)
-  best_of                                          Int                       @default(1) @db.SmallInt
-  scheduled_at                                     DateTime?                 @db.Timestamptz(6)
-  started_at                                       DateTime?                 @db.Timestamptz(6)
-  completed_at                                     DateTime?                 @db.Timestamptz(6)
-  winner_registration_id                           String?                   @db.Uuid
-  reported_by                                      String?                   @db.Uuid
-  confirmed_by                                     String?                   @db.Uuid
-  result_note                                      String?
-  metadata                                         Json                      @default("{}")
-  stream_url                                       String?
-  created_at                                       DateTime                  @default(now()) @db.Timestamptz(6)
-  updated_at                                       DateTime                  @default(now()) @db.Timestamptz(6)
-  match_games                                      match_games[]
-  match_messages                                   match_messages[]
-  match_slots_match_slots_match_idTomatches        match_slots[]             @relation("match_slots_match_idTomatches")
-  match_slots_match_slots_source_match_idTomatches match_slots[]             @relation("match_slots_source_match_idTomatches")
-  profiles_matches_confirmed_byToprofiles          profiles?                 @relation("matches_confirmed_byToprofiles", fields: [confirmed_by], references: [id], onUpdate: NoAction)
-  stage_groups                                     stage_groups?             @relation(fields: [group_id], references: [id], onUpdate: NoAction)
-  profiles_matches_reported_byToprofiles           profiles?                 @relation("matches_reported_byToprofiles", fields: [reported_by], references: [id], onUpdate: NoAction)
-  tournament_stages                                tournament_stages         @relation(fields: [stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournaments                                      tournaments               @relation(fields: [tournament_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournament_registrations                         tournament_registrations? @relation(fields: [winner_registration_id], references: [id], onUpdate: NoAction)
-
-  @@unique([stage_id, group_id, match_order])
-  @@index([scheduled_at], map: "matches_schedule_idx", where: raw("(scheduled_at IS NOT NULL)"))
-  @@index([stage_id, round_number, match_order], map: "matches_stage_round_order_idx")
-  @@index([tournament_id, status], map: "matches_tournament_status_idx")
+model match_map_vetos {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  roster_id           String              @db.Uuid
+  map_name            String              @db.VarChar
+  action_code         String              @db.VarChar
+  order_number        Int
+  created_at          DateTime?           @default(now())  @db.Timestamp(6)
+  veto_actions        veto_actions        @relation(fields: [action_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters             rosters             @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model profiles {
-  id                                                                        String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  username                                                                  String?                    @unique @db.VarChar(32)
-  display_name                                                              String?                    @db.VarChar(80)
-  email                                                                     String?                    @db.VarChar(80)
-  avatar_url                                                                String?
-  bio                                                                       String?                    @db.VarChar(500)
-  created_at                                                                DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at                                                                DateTime                   @default(now()) @db.Timestamptz(6)
-  audit_logs                                                                audit_logs[]
-  invitations_invitations_accepted_byToprofiles                             invitations[]              @relation("invitations_accepted_byToprofiles")
-  invitations_invitations_invited_byToprofiles                              invitations[]              @relation("invitations_invited_byToprofiles")
-  match_messages                                                            match_messages[]
-  matches_matches_confirmed_byToprofiles                                    matches[]                  @relation("matches_confirmed_byToprofiles")
-  matches_matches_reported_byToprofiles                                     matches[]                  @relation("matches_reported_byToprofiles")
-  structure_members                                                         structure_members[]
-  structures                                                                structures[]
-  studio_projects                                                           studio_projects[]
-  team_members                                                              team_members[]
-  teams                                                                     teams[]
-  tournament_registrations_tournament_registrations_registered_byToprofiles tournament_registrations[] @relation("tournament_registrations_registered_byToprofiles")
-  tournament_registrations_tournament_registrations_reviewed_byToprofiles   tournament_registrations[] @relation("tournament_registrations_reviewed_byToprofiles")
-  tournaments                                                               tournaments[]
-  tournamentMembers                                                         tournament_members[]
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model stage_entries {
-  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stage_id                 String                   @db.Uuid
-  registration_id          String                   @db.Uuid
-  group_id                 String?                  @db.Uuid
-  seed                     Int?
-  qualification_source     String?
-  created_at               DateTime                 @default(now()) @db.Timestamptz(6)
-  stage_groups             stage_groups?            @relation(fields: [group_id], references: [id], onUpdate: NoAction)
-  tournament_registrations tournament_registrations @relation(fields: [registration_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournament_stages        tournament_stages        @relation(fields: [stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([stage_id, registration_id])
-  @@index([stage_id, group_id], map: "stage_entries_stage_group_idx")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model stage_groups {
-  id                                                                String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stage_id                                                          String              @db.Uuid
-  name                                                              String              @db.VarChar(80)
-  group_order                                                       Int
-  config                                                            Json                @default("{}")
-  match_slots                                                       match_slots[]
-  matches                                                           matches[]
-  stage_entries                                                     stage_entries[]
-  tournament_stages                                                 tournament_stages   @relation(fields: [stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  stage_standings                                                   stage_standings[]
-  stage_transitions_stage_transitions_source_group_idTostage_groups stage_transitions[] @relation("stage_transitions_source_group_idTostage_groups")
-  stage_transitions_stage_transitions_target_group_idTostage_groups stage_transitions[] @relation("stage_transitions_target_group_idTostage_groups")
-
-  @@unique([stage_id, group_order])
-  @@unique([stage_id, name])
-  @@index([stage_id], map: "stage_groups_stage_idx")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model stage_standings {
-  id                       String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  stage_id                 String                   @db.Uuid
-  group_id                 String?                  @db.Uuid
-  registration_id          String                   @db.Uuid
-  rank                     Int?
-  played                   Int                      @default(0)
-  wins                     Int                      @default(0)
-  draws                    Int                      @default(0)
-  losses                   Int                      @default(0)
-  points                   Decimal                  @default(0) @db.Decimal(10, 2)
-  score_for                Int                      @default(0)
-  score_against            Int                      @default(0)
-  tiebreakers              Json                     @default("{}")
-  updated_at               DateTime                 @default(now()) @db.Timestamptz(6)
-  stage_groups             stage_groups?            @relation(fields: [group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournament_registrations tournament_registrations @relation(fields: [registration_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  tournament_stages        tournament_stages        @relation(fields: [stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([stage_id, group_id, registration_id])
-  @@index([stage_id, group_id, rank], map: "standings_stage_group_rank_idx")
-}
-
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
-/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model stage_transitions {
-  id                                                                   String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  from_stage_id                                                        String            @db.Uuid
-  to_stage_id                                                          String            @db.Uuid
-  name                                                                 String            @db.VarChar(100)
-  source_scope                                                         String            @default("OVERALL")
-  source_group_id                                                      String?           @db.Uuid
-  qualification_rule                                                   Json
-  target_group_id                                                      String?           @db.Uuid
-  target_seed_rule                                                     Json              @default("{}")
-  created_at                                                           DateTime          @default(now()) @db.Timestamptz(6)
-  tournament_stages_stage_transitions_from_stage_idTotournament_stages tournament_stages @relation("stage_transitions_from_stage_idTotournament_stages", fields: [from_stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  stage_groups_stage_transitions_source_group_idTostage_groups         stage_groups?     @relation("stage_transitions_source_group_idTostage_groups", fields: [source_group_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  stage_groups_stage_transitions_target_group_idTostage_groups         stage_groups?     @relation("stage_transitions_target_group_idTostage_groups", fields: [target_group_id], references: [id], onUpdate: NoAction)
-  tournament_stages_stage_transitions_to_stage_idTotournament_stages   tournament_stages @relation("stage_transitions_to_stage_idTotournament_stages", fields: [to_stage_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([from_stage_id], map: "stage_transitions_from_idx")
-  @@index([to_stage_id], map: "stage_transitions_to_idx")
+model match_media {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  uploaded_by_user_id String              @db.Uuid
+  media_type_code     String              @db.VarChar
+  url                 String              @db.VarChar
+  created_at          DateTime?           @default(now()) @db.Timestamp(6)
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  match_media_types   match_media_types   @relation(fields: [media_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  users               users               @relation(fields: [uploaded_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model structure_members {
-  structure_id String      @db.Uuid
-  user_id      String      @db.Uuid
-  role         member_role @default(MEMBER)
-  joined_at    DateTime    @default(now()) @db.Timestamptz(6)
-  structures   structures  @relation(fields: [structure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  profiles     profiles    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([structure_id, user_id])
-  @@index([user_id], map: "structure_members_user_idx")
+model match_media_types {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  match_media match_media[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model structure_teams {
-  structure_id String     @db.Uuid
-  team_id      String     @unique @db.Uuid
-  linked_at    DateTime   @default(now()) @db.Timestamptz(6)
-  structures   structures @relation(fields: [structure_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  teams        teams      @relation(fields: [team_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([structure_id, team_id])
-  @@index([team_id], map: "structure_teams_team_idx")
+model match_statuses {
+  code                String                @id @db.VarChar
+  label               String                @db.VarChar
+  is_default          Boolean?              @default(false)
+  tournaments_matches tournaments_matches[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model structures {
-  id                String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name              String               @db.VarChar(100)
-  slug              String               @unique @db.VarChar(120)
-  description       String?
-  logo_url          String?
-  banner_url        String?
-  website_url       String?
-  created_by        String               @db.Uuid
-  is_public         Boolean              @default(true)
-  created_at        DateTime             @default(now()) @db.Timestamptz(6)
-  updated_at        DateTime             @default(now()) @db.Timestamptz(6)
-  deleted_at        DateTime?            @db.Timestamptz(6)
-  structure_members structure_members[]
-  structure_teams   structure_teams[]
-  profiles          profiles             @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  tournaments       tournaments[]
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  title      String    @db.VarChar
+  message    String
+  type       String?   @db.VarChar
+  read_at    DateTime? @db.Timestamp(6)
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model studio_projects {
+model overlay_types {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  studio_overlays studio_overlays[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rosters {
+  id                                                                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                                              String                      @db.VarChar
+  slug                                                              String                      @unique @db.VarChar
+  platform                                                          String?                     @db.VarChar
+  game                                                              String?                     @db.VarChar
+  created_at                                                        DateTime?                   @default(now()) @db.Timestamp(6)
+  updated_at                                                        DateTime?                   @updatedAt @db.Timestamp(6)
+  deleted                                                           Boolean                     @default(false)
+  match_map_vetos                                                   match_map_vetos[]
+  rosters_members                                                   rosters_members[]
+  tournaments_match_games                                           tournaments_match_games[]
+  tournaments_matches_tournaments_matches_roster1_idTorosters       tournaments_matches[]       @relation("tournaments_matches_roster1_idTorosters")
+  tournaments_matches_tournaments_matches_roster2_idTorosters       tournaments_matches[]       @relation("tournaments_matches_roster2_idTorosters")
+  tournaments_matches_tournaments_matches_winner_roster_idTorosters tournaments_matches[]       @relation("tournaments_matches_winner_roster_idTorosters")
+  tournaments_registrations                                         tournaments_registrations[]
+  clubs                                                             clubs[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rosters_members {
+  user_id    String     @db.Uuid
+  roster_id  String     @db.Uuid
+  role_code  String     @db.VarChar
+  created_at DateTime?  @default(now()) @db.Timestamp(6)
+  updated_at DateTime?  @updatedAt @db.Timestamp(6)
+  team_roles team_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  rosters    rosters    @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, roster_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sponsors {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                @db.VarChar
+  logo_url            String                @db.VarChar
+  website_url         String?               @db.VarChar
+  created_at          DateTime?             @default(now()) @db.Timestamp(6)
+  tournament_sponsors tournament_sponsors[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squad_member_roles {
+  code           String           @id @db.VarChar
+  label          String           @db.VarChar
+  is_default     Boolean?         @default(false)
+  squads_members squads_members[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squad_types {
+  code       String   @id @db.VarChar
+  label      String   @db.VarChar
+  is_default Boolean? @default(false)
+  squads     squads[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squads {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String           @db.VarChar
+  type_code      String           @db.VarChar
+  game           String?          @db.VarChar
+  platform       String?          @db.VarChar
+  nb_places      Int?
+  micro_required Boolean?         @default(false)
+  level          String?          @db.VarChar
+  role_searched  String?          @db.VarChar
+  created_at     DateTime?        @default(now()) @db.Timestamp(6)
+  updated_at     DateTime?        @updatedAt @db.Timestamp(6)
+  squad_types    squad_types      @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  squads_members squads_members[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squads_members {
+  user_id            String             @db.Uuid
+  squad_id           String             @db.Uuid
+  role_code          String             @db.VarChar
+  status             SquadMemberStatus
+  squad_member_roles squad_member_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  squads             squads             @relation(fields: [squad_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, squad_id])
+}
+
+enum SquadMemberStatus {
+  INVITE
+  JOINED
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studio_overlays {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String        @db.Uuid
+  type_code     String        @db.VarChar
+  access_token  String        @unique @db.VarChar
+  is_enabled    Boolean?      @default(true)
+  created_at    DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at    DateTime?     @updatedAt @db.Timestamp(6)
+  studios       studios       @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  overlay_types overlay_types @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studio_scenes_config {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id       String    @db.Uuid
+  primary_color   String?   @default("#00F0FF") @db.VarChar
+  secondary_color String?   @default("#FF0055") @db.VarChar
+  font_family     String?   @default("Inter") @db.VarChar
+  show_sponsors   Boolean?  @default(true)
+  show_casters    Boolean?  @default(true)
+  custom_css      String?
+  updated_at      DateTime? @updatedAt @db.Timestamp(6)
+  studios         studios   @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studios {
   id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tournament_id        String                 @unique @db.Uuid
-  name                 String                 @default("Studio") @db.VarChar(120)
-  theme                Json                   @default("{\"primary\": \"#CCFF00\", \"secondary\": \"#1E293B\", \"background\": \"#0F172A\"}")
-  logo_url             String?
-  banner_url           String?
-  created_by           String                 @db.Uuid
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
-  profiles             profiles               @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  tournaments          tournaments            @relation(fields: [tournament_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  studio_public_tokens studio_public_tokens[]
-  studio_scenes        studio_scenes[]
+  owner_user_id        String                 @db.Uuid
+  tournament_id        String?                @db.Uuid
+  active_match_id      String?                @db.Uuid
+  name                 String                 @db.VarChar
+  created_at           DateTime?              @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?              @updatedAt @db.Timestamp(6)
+  studio_overlays      studio_overlays[]
+  studio_scenes_config studio_scenes_config[]
+  tournaments_matches  tournaments_matches?   @relation(fields: [active_match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                users                  @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments          tournaments?           @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model studio_public_tokens {
-  id              String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id      String          @db.Uuid
-  scene_id        String?         @db.Uuid
-  token_hash      String          @unique
-  label           String?         @db.VarChar(100)
-  is_active       Boolean         @default(true)
-  expires_at      DateTime?       @db.Timestamptz(6)
-  last_used_at    DateTime?       @db.Timestamptz(6)
-  created_at      DateTime        @default(now()) @db.Timestamptz(6)
-  studio_projects studio_projects @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  studio_scenes   studio_scenes?  @relation(fields: [scene_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@index([project_id], map: "studio_tokens_project_idx", where: raw("is_active"))
+model team_roles {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  rosters_members rosters_members[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model studio_scenes {
-  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  project_id           String                 @db.Uuid
-  name                 String                 @db.VarChar(100)
-  scene_type           overlay_scene_type     @default(MATCH)
-  slug                 String                 @db.VarChar(120)
-  is_enabled           Boolean                @default(true)
-  is_default           Boolean                @default(false)
-  layout               Json                   @default("{}")
-  data_binding         Json                   @default("{}")
-  created_at           DateTime               @default(now()) @db.Timestamptz(6)
-  updated_at           DateTime               @default(now()) @db.Timestamptz(6)
-  studio_public_tokens studio_public_tokens[]
-  studio_projects      studio_projects        @relation(fields: [project_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([project_id, slug])
-  @@index([project_id, is_enabled], map: "studio_scenes_project_enabled_idx")
+model tournament_member_roles {
+  code                String                @id @db.VarChar
+  label               String                @db.VarChar
+  is_default          Boolean?              @default(false)
+  tournaments_members tournaments_members[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model team_members {
-  team_id       String           @db.Uuid
-  user_id       String           @db.Uuid
-  role          team_member_role @default(PLAYER)
-  jersey_number Int?             @db.SmallInt
-  joined_at     DateTime         @default(now()) @db.Timestamptz(6)
-  teams         teams            @relation(fields: [team_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  profiles      profiles         @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([team_id, user_id])
-  @@index([user_id], map: "team_members_user_idx")
+model tournament_prizes {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id String      @db.Uuid
+  position      Int
+  amount        Decimal     @db.Decimal(10, 2)
+  percentage    Decimal?    @db.Decimal(5, 2)
+  created_at    DateTime?   @default(now()) @db.Timestamp(6)
+  tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-/// This model contains an expression index which requires additional setup for migrations. Visit https://pris.ly/d/expression-indexes for more info.
-model teams {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String                     @db.VarChar(100)
-  slug                     String?                    @db.VarChar(120)
-  game                     String                     @db.VarChar(100)
-  platform                 platform                   @default(PC)
-  logo_url                 String?
-  description              String?
-  created_by               String                     @db.Uuid
-  is_public                Boolean                    @default(true)
-  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  deleted_at               DateTime?                  @db.Timestamptz(6)
-  structure_teams          structure_teams?
-  team_members             team_members[]
-  profiles                 profiles                   @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  tournament_registrations tournament_registrations[]
+model tournament_registration_statuses {
+  code                      String                      @id @db.VarChar
+  label                     String                      @db.VarChar
+  is_default                Boolean?                    @default(false)
+  tournaments_registrations tournaments_registrations[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model tournament_registrations {
-  id                                                        String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tournament_id                                             String              @db.Uuid
-  team_id                                                   String              @db.Uuid
-  registered_by                                             String              @db.Uuid
-  status                                                    registration_status @default(PENDING)
-  seed                                                      Int?
-  checked_in_at                                             DateTime?           @db.Timestamptz(6)
-  reviewed_by                                               String?             @db.Uuid
-  reviewed_at                                               DateTime?           @db.Timestamptz(6)
-  admin_note                                                String?
-  public_note                                               String?
-  registered_at                                             DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at                                                DateTime            @default(now()) @db.Timestamptz(6)
-  match_slots                                               match_slots[]
-  matches                                                   matches[]
-  stage_entries                                             stage_entries[]
-  stage_standings                                           stage_standings[]
-  profiles_tournament_registrations_registered_byToprofiles profiles            @relation("tournament_registrations_registered_byToprofiles", fields: [registered_by], references: [id], onUpdate: NoAction)
-  profiles_tournament_registrations_reviewed_byToprofiles   profiles?           @relation("tournament_registrations_reviewed_byToprofiles", fields: [reviewed_by], references: [id], onUpdate: NoAction)
-  teams                                                     teams               @relation(fields: [team_id], references: [id], onUpdate: NoAction)
-  tournaments                                               tournaments         @relation(fields: [tournament_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+model tournament_sponsors {
+  tournament_id String      @db.Uuid
+  sponsor_id    String      @db.Uuid
+  tier          String?     @db.VarChar
+  sponsors      sponsors    @relation(fields: [sponsor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
-  @@unique([tournament_id, team_id])
-  @@index([team_id], map: "registrations_team_idx")
-  @@index([tournament_id, status], map: "registrations_tournament_status_idx")
+  @@id([tournament_id, sponsor_id])
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
-model tournament_stages {
-  id                                                                   String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  tournament_id                                                        String              @db.Uuid
-  name                                                                 String              @db.VarChar(100)
-  stage_order                                                          Int
-  stage_type                                                           stage_type
-  status                                                               stage_status        @default(DRAFT)
-  config                                                               Json                @default("{}")
-  starts_at                                                            DateTime?           @db.Timestamptz(6)
-  ends_at                                                              DateTime?           @db.Timestamptz(6)
-  created_at                                                           DateTime            @default(now()) @db.Timestamptz(6)
-  updated_at                                                           DateTime            @default(now()) @db.Timestamptz(6)
-  match_slots                                                          match_slots[]
-  matches                                                              matches[]
-  stage_entries                                                        stage_entries[]
-  stage_groups                                                         stage_groups[]
-  stage_standings                                                      stage_standings[]
-  stage_transitions_stage_transitions_from_stage_idTotournament_stages stage_transitions[] @relation("stage_transitions_from_stage_idTotournament_stages")
-  stage_transitions_stage_transitions_to_stage_idTotournament_stages   stage_transitions[] @relation("stage_transitions_to_stage_idTotournament_stages")
-  tournaments                                                          tournaments         @relation(fields: [tournament_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@unique([tournament_id, stage_order])
-  @@index([tournament_id, stage_order], map: "stages_tournament_order_idx")
+model tournament_stage_statuses {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
 }
 
-/// This table contains check constraints and requires additional setup for migrations. Visit https://pris.ly/d/check-constraints for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_stage_types {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_statuses {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  tournaments tournaments[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_streams {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id       String               @db.Uuid
+  match_id            String?              @db.Uuid
+  platform            String?              @db.VarChar
+  channel_name        String               @db.VarChar
+  stream_url          String               @db.VarChar
+  language            String?              @default("fr") @db.VarChar
+  is_official         Boolean?             @default(true)
+  created_at          DateTime?            @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?            @updatedAt @db.Timestamp(6)
+  tournaments_matches tournaments_matches? @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments         tournaments          @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model tournaments {
-  id                       String                     @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name                     String                     @db.VarChar(160)
-  slug                     String                     @unique @db.VarChar(180)
-  description              String?
-  rules                    String?
-  game                     String                     @db.VarChar(100)
-  platform                 platform                   @default(PC)
-  status                   tournament_status          @default(DRAFT)
-  organizer_structure_id   String?                    @db.Uuid
-  created_by               String                     @db.Uuid
-  min_teams                Int                        @default(2)
-  max_teams                Int?
-  team_size_min            Int?                       @db.SmallInt
-  team_size_max            Int?                       @db.SmallInt
-  registration_opens_at    DateTime?                  @db.Timestamptz(6)
-  registration_closes_at   DateTime?                  @db.Timestamptz(6)
-  check_in_opens_at        DateTime?                  @db.Timestamptz(6)
-  starts_at                DateTime?                  @db.Timestamptz(6)
-  ends_at                  DateTime?                  @db.Timestamptz(6)
-  timezone                 String                     @default("UTC") @db.VarChar(64)
-  is_public                Boolean                    @default(true)
-  is_free                  Boolean                    @default(true)
-  prize_pool               Decimal?                   @db.Decimal(12, 2)
-  prize_currency           String?                    @db.Char(3)
-  settings                 Json                       @default("{}")
-  created_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  updated_at               DateTime                   @default(now()) @db.Timestamptz(6)
-  deleted_at               DateTime?                  @db.Timestamptz(6)
-  matches                  matches[]
-  studio_projects          studio_projects?
-  tournament_members      tournament_members[]
-  tournament_registrations tournament_registrations[]
-  tournament_stages        tournament_stages[]
-  profiles                 profiles                   @relation(fields: [created_by], references: [id], onUpdate: NoAction)
-  structures               structures?                @relation(fields: [organizer_structure_id], references: [id], onUpdate: NoAction)
-
-  @@index([created_by], map: "tournaments_creator_idx")
-  @@index([status, starts_at], map: "tournaments_status_start_idx", where: raw("(deleted_at IS NULL)"))
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String                      @db.VarChar
+  slug                      String                      @unique @db.VarChar
+  game                      String?                     @db.VarChar
+  status_code               String                      @db.VarChar
+  format                    String?                     @db.VarChar
+  platform                  String?                     @db.VarChar
+  cashprize                 Decimal?                    @default(0) @db.Decimal(10, 2)
+  prix_entree               String?                     @db.VarChar
+  nb_rosters                Int?
+  checkin_enabled           Boolean?                    @default(true)
+  checkin_start_at          DateTime?                   @db.Timestamp(6)
+  checkin_end_at            DateTime?                   @db.Timestamp(6)
+  start_at                  DateTime?                   @db.Timestamp(6)
+  end_at                    DateTime?                   @db.Timestamp(6)
+  registration_start_at     DateTime?                   @db.Timestamp(6)
+  registration_end_at       DateTime?                   @db.Timestamp(6)
+  created_at                DateTime?                   @default(now()) @db.Timestamp(6)
+  updated_at                DateTime?                   @updatedAt @db.Timestamp(6)
+  studios                   studios[]
+  tournament_prizes         tournament_prizes[]
+  tournament_sponsors       tournament_sponsors[]
+  tournament_streams        tournament_streams[]
+  tournament_statuses       tournament_statuses         @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_members       tournaments_members[]
+  tournaments_registrations tournaments_registrations[]
+  tournaments_stages        tournaments_stages[]
 }
 
-model tournament_members {
-  tournament_id String      @db.Uuid
-  user_id      String      @db.Uuid
-  role         tournament_member_role @default(ARBITRE)
-  joined_at    DateTime    @default(now()) @db.Timestamptz(6)
-  tournaments   tournaments  @relation(fields: [tournament_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-  profiles     profiles    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
-
-  @@id([tournament_id, user_id])
-  @@index([user_id], map: "tournament_members_user_idx")
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_match_games {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  game_number         Int?
+  map_name            String?             @db.VarChar
+  roster1_score       Int?                @default(0)
+  roster2_score       Int?                @default(0)
+  winner_roster_id    String?             @db.Uuid
+  created_at          DateTime?           @default(now()) @db.Timestamp(6)
+  updated_at          DateTime?           @updatedAt @db.Timestamp(6)
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters             rosters?            @relation(fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-enum invitation_status {
-  PENDING
-  ACCEPTED
-  DECLINED
-  EXPIRED
-  REVOKED
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_matches {
+  id                                                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stage_id                                              String                    @db.Uuid
+  roster1_id                                            String?                   @db.Uuid
+  roster2_id                                            String?                   @db.Uuid
+  winner_roster_id                                      String?                   @db.Uuid
+  status_code                                           String                    @db.VarChar
+  round_number                                          Int?
+  roster1_checked_in                                    Boolean?                  @default(false)
+  roster2_checked_in                                    Boolean?                  @default(false)
+  scheduled_at                                          DateTime?                 @db.Timestamp(6)
+  started_at                                            DateTime?                 @db.Timestamp(6)
+  ended_at                                              DateTime?                 @db.Timestamp(6)
+  created_at                                            DateTime?                 @default(now()) @db.Timestamp(6)
+  updated_at                                            DateTime?                 @updatedAt @db.Timestamp(6)
+  match_arbiters                                        match_arbiters[]
+  match_disputes                                        match_disputes[]
+  match_map_vetos                                       match_map_vetos[]
+  match_media                                           match_media[]
+  studios                                               studios[]
+  tournament_streams                                    tournament_streams[]
+  tournaments_match_games                               tournaments_match_games[]
+  rosters_tournaments_matches_roster1_idTorosters       rosters?                  @relation("tournaments_matches_roster1_idTorosters", fields: [roster1_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters_tournaments_matches_roster2_idTorosters       rosters?                  @relation("tournaments_matches_roster2_idTorosters", fields: [roster2_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_stages                                    tournaments_stages        @relation(fields: [stage_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  match_statuses                                        match_statuses            @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  rosters_tournaments_matches_winner_roster_idTorosters rosters?                  @relation("tournaments_matches_winner_roster_idTorosters", fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
-enum invitation_target_type {
-  STRUCTURE
-  TEAM
-  TOURNAMENT
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_members {
+  user_id                 String                  @db.Uuid
+  tournament_id           String                  @db.Uuid
+  role_code               String                  @db.VarChar
+  created_at              DateTime?               @default(now())  @db.Timestamp(6)
+  tournament_member_roles tournament_member_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments             tournaments             @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                   users                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, tournament_id])
 }
 
-enum match_side {
-  A
-  B
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_registrations {
+  roster_id                        String                           @db.Uuid
+  tournament_id                    String                           @db.Uuid
+  status_code                      String                           @db.VarChar
+  checked_in                       Boolean?                         @default(false)
+  checked_in_at                    DateTime?                        @db.Timestamp(6)
+  created_at                       DateTime?                        @default(now())  @db.Timestamp(6)
+  updated_at                       DateTime?                        @updatedAt  @db.Timestamp(6)
+  rosters                          rosters                          @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournament_registration_statuses tournament_registration_statuses @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments                      tournaments                      @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([roster_id, tournament_id])
 }
 
-enum match_slot_source {
-  REGISTRATION
-  PREVIOUS_MATCH
-  GROUP_RANK
-  MANUAL
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_stages {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id             String                    @db.Uuid
+  name                      String?                   @db.VarChar
+  type_code                 String                    @db.VarChar
+  status_code               String                    @db.VarChar
+  nb_team                   Int?
+  bo_code                   String                    @db.VarChar
+  created_at                DateTime?                 @default(now())  @db.Timestamp(6)
+  updated_at                DateTime?                 @updatedAt  @db.Timestamp(6)
+  tournaments_matches       tournaments_matches[]
+  bo_options                bo_options                @relation(fields: [bo_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournament_stage_statuses tournament_stage_statuses @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments               tournaments               @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournament_stage_types    tournament_stage_types    @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
 }
 
-enum match_status {
-  PENDING
-  READY
-  LIVE
-  AWAITING_RESULT_CONFIRMATION
-  COMPLETED
-  DISPUTED
-  CANCELLED
-  BYE
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_game_accounts {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  game         String    @db.VarChar
+  in_game_name String    @db.VarChar
+  game_user_id String?   @db.VarChar
+  verified     Boolean?  @default(false)
+  created_at   DateTime? @default(now())  @db.Timestamp(6)
+  updated_at   DateTime? @updatedAt  @db.Timestamp(6)
+  users        users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, game], map: "user_game_accounts_user_id_game_idx")
 }
 
-enum member_role {
-  OWNER
-  ADMIN
-  MEMBER
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                   String                @unique @db.VarChar
+  display_name                                            String                @db.VarChar
+  created_at                                              DateTime?             @default(now())  @db.Timestamp(6)
+  updated_at                                              DateTime?             @updatedAt  @db.Timestamp(6)
+  clubs_members                                           clubs_members[]
+  invitations                                             invitations[]
+  match_arbiters                                          match_arbiters[]
+  match_disputes_match_disputes_handled_by_user_idTousers match_disputes[]      @relation("match_disputes_handled_by_user_idTousers")
+  match_disputes_match_disputes_opened_by_user_idTousers  match_disputes[]      @relation("match_disputes_opened_by_user_idTousers")
+  match_media                                             match_media[]
+  notifications                                           notifications[]
+  rosters_members                                         rosters_members[]
+  squads_members                                          squads_members[]
+  studios                                                 studios[]
+  tournaments_members                                     tournaments_members[]
+  user_game_accounts                                      user_game_accounts[]
 }
 
-enum tournament_member_role {
-  ADMIN
-  ARBITRE
-}
-
-enum overlay_scene_type {
-  MATCH
-  BRACKET
-  STANDINGS
-  LOWER_THIRD
-  COUNTDOWN
-  UP_NEXT
-  CUSTOM
-}
-
-enum platform {
-  PC
-  PLAYSTATION
-  XBOX
-  SWITCH
-  MOBILE
-  CROSS_PLATFORM
-  OTHER
-}
-
-enum qualification_outcome {
-  WINNER
-  LOSER
-}
-
-enum registration_status {
-  PENDING
-  APPROVED
-  REJECTED
-  WAITLISTED
-  CHECKED_IN
-  WITHDRAWN
-}
-
-enum stage_status {
-  DRAFT
-  READY
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-}
-
-enum stage_type {
-  GROUPS
-  ROUND_ROBIN
-  SWISS
-  SINGLE_ELIMINATION
-  DOUBLE_ELIMINATION
-  LADDER
-  CUSTOM
-}
-
-enum team_member_role {
-  MANAGER
-  CAPTAIN
-  PLAYER
-}
-
-enum tournament_status {
-  DRAFT
-  REGISTRATION_OPEN
-  REGISTRATION_CLOSED
-  CHECK_IN
-  IN_PROGRESS
-  COMPLETED
-  CANCELLED
-  ARCHIVED
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model veto_actions {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  match_map_vetos match_map_vetos[]
 }

@@ -1,0 +1,595 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["partialIndexes"]
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model bo_options {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model club_roles {
+  code          String          @id @db.VarChar
+  label         String          @db.VarChar
+  is_default    Boolean?        @default(false)
+  clubs_members clubs_members[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clubs {
+  id            String          @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name          String          @db.VarChar
+  description   String?
+  slug          String          @unique @db.VarChar
+  recruit_open  Boolean?        @default(false)
+  created_at    DateTime?       @default(now())
+  updated_at    DateTime?       @updatedAt
+  deleted       Boolean         @default(false)
+  clubs_members clubs_members[]
+  rosters       rosters[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model clubs_members {
+  user_id    String     @db.Uuid
+  club_id    String     @db.Uuid
+  role_code  String     @db.VarChar
+  created_at DateTime?  @default(now())
+  updated_at DateTime?  @updatedAt
+  clubs      clubs      @relation(fields: [club_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  club_roles club_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, club_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model dispute_statuses {
+  code           String           @id @db.VarChar
+  label          String           @db.VarChar
+  is_default     Boolean?         @default(false)
+  match_disputes match_disputes[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invitation_target_types {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  invitations invitations[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model invitations {
+  id                      String                  @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  code                    String                  @unique @db.VarChar
+  inviter_id              String                  @db.Uuid
+  target_type_code        String                  @db.VarChar
+  target_id               String                  @db.Uuid
+  status                  String                  @db.VarChar
+  max_uses                Int?                    @default(1)
+  uses_count              Int?                    @default(0)
+  expires_at              DateTime?               @db.Timestamp(6)
+  created_at              DateTime?               @default(now())
+  users                   users                   @relation(fields: [inviter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  invitation_target_types invitation_target_types @relation(fields: [target_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+enum InvitationStatus {
+  WAIT
+  ACCEPTED
+  REFUSED
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_arbiters {
+  match_id            String              @db.Uuid
+  user_id             String              @db.Uuid
+  assigned_at         DateTime?           @default(now())
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([match_id, user_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_disputes {
+  id                                             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id                                       String              @db.Uuid
+  opened_by_user_id                              String?             @db.Uuid
+  handled_by_user_id                             String?             @db.Uuid
+  reason                                         String
+  status_code                                    String              @db.VarChar
+  resolution_notes                               String?
+  created_at                                     DateTime?           @default(now())
+  updated_at                                     DateTime?           @updatedAt
+  users_match_disputes_handled_by_user_idTousers users?              @relation("match_disputes_handled_by_user_idTousers", fields: [handled_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_matches                            tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_match_disputes_opened_by_user_idTousers  users?              @relation("match_disputes_opened_by_user_idTousers", fields: [opened_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispute_statuses                               dispute_statuses    @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_map_vetos {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  roster_id           String              @db.Uuid
+  map_name            String              @db.VarChar
+  action_code         String              @db.VarChar
+  order_number        Int
+  created_at          DateTime?           @default(now())
+  veto_actions        veto_actions        @relation(fields: [action_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters             rosters             @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_media {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  uploaded_by_user_id String              @db.Uuid
+  media_type_code     String              @db.VarChar
+  url                 String              @db.VarChar
+  created_at          DateTime?           @default(now())
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  match_media_types   match_media_types   @relation(fields: [media_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  users               users               @relation(fields: [uploaded_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_media_types {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  match_media match_media[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model match_statuses {
+  code                String                @id @db.VarChar
+  label               String                @db.VarChar
+  is_default          Boolean?              @default(false)
+  tournaments_matches tournaments_matches[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model notifications {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id    String    @db.Uuid
+  title      String    @db.VarChar
+  message    String
+  type       String?   @db.VarChar
+  read_at    DateTime? @db.Timestamp(6)
+  created_at DateTime? @default(now())
+  users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model overlay_types {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  studio_overlays studio_overlays[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rosters {
+  id                                                                String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                                                              String                      @db.VarChar
+  slug                                                              String                      @unique @db.VarChar
+  platform                                                          String?                     @db.VarChar
+  game                                                              String?                     @db.VarChar
+  created_at                                                        DateTime?                   @default(now())
+  updated_at                                                        DateTime?                   @updatedAt
+  deleted                                                           Boolean                     @default(false)
+  match_map_vetos                                                   match_map_vetos[]
+  rosters_members                                                   rosters_members[]
+  tournaments_match_games                                           tournaments_match_games[]
+  tournaments_matches_tournaments_matches_roster1_idTorosters       tournaments_matches[]       @relation("tournaments_matches_roster1_idTorosters")
+  tournaments_matches_tournaments_matches_roster2_idTorosters       tournaments_matches[]       @relation("tournaments_matches_roster2_idTorosters")
+  tournaments_matches_tournaments_matches_winner_roster_idTorosters tournaments_matches[]       @relation("tournaments_matches_winner_roster_idTorosters")
+  tournaments_registrations                                         tournaments_registrations[]
+  clubs                                                             clubs[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model rosters_members {
+  user_id    String     @db.Uuid
+  roster_id  String     @db.Uuid
+  role_code  String     @db.VarChar
+  created_at DateTime?  @default(now())
+  updated_at DateTime?  @updatedAt
+  team_roles team_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  rosters    rosters    @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, roster_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model sponsors {
+  id                  String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                String                @db.VarChar
+  logo_url            String                @db.VarChar
+  website_url         String?               @db.VarChar
+  created_at          DateTime?             @default(now())
+  tournament_sponsors tournament_sponsors[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squad_member_roles {
+  code           String           @id @db.VarChar
+  label          String           @db.VarChar
+  is_default     Boolean?         @default(false)
+  squads_members squads_members[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squad_types {
+  code       String   @id @db.VarChar
+  label      String   @db.VarChar
+  is_default Boolean? @default(false)
+  squads     squads[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squads {
+  id             String           @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name           String           @db.VarChar
+  type_code      String           @db.VarChar
+  game           String?          @db.VarChar
+  platform       String?          @db.VarChar
+  nb_places      Int?
+  micro_required Boolean?         @default(false)
+  level          String?          @db.VarChar
+  role_searched  String?          @db.VarChar
+  created_at     DateTime?        @default(now())
+  updated_at     DateTime?        @updatedAt
+  squad_types    squad_types      @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  squads_members squads_members[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model squads_members {
+  user_id            String             @db.Uuid
+  squad_id           String             @db.Uuid
+  role_code          String             @db.VarChar
+  status             SquadMemberStatus
+  squad_member_roles squad_member_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  squads             squads             @relation(fields: [squad_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users              users              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, squad_id])
+}
+
+enum SquadMemberStatus {
+  INVITE
+  JOINED
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studio_overlays {
+  id            String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id     String        @db.Uuid
+  type_code     String        @db.VarChar
+  access_token  String        @unique @db.VarChar
+  is_enabled    Boolean?      @default(true)
+  created_at    DateTime?     @default(now())
+  updated_at    DateTime?     @updatedAt
+  studios       studios       @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  overlay_types overlay_types @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studio_scenes_config {
+  id              String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  studio_id       String    @db.Uuid
+  primary_color   String?   @default("#00F0FF") @db.VarChar
+  secondary_color String?   @default("#FF0055") @db.VarChar
+  font_family     String?   @default("Inter") @db.VarChar
+  show_sponsors   Boolean?  @default(true)
+  show_casters    Boolean?  @default(true)
+  custom_css      String?
+  updated_at      DateTime? @updatedAt
+  studios         studios   @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model studios {
+  id                   String                 @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  owner_user_id        String                 @db.Uuid
+  tournament_id        String?                @db.Uuid
+  active_match_id      String?                @db.Uuid
+  name                 String                 @db.VarChar
+  created_at           DateTime?              @default(now())
+  updated_at           DateTime?              @updatedAt
+  studio_overlays      studio_overlays[]
+  studio_scenes_config studio_scenes_config[]
+  tournaments_matches  tournaments_matches?   @relation(fields: [active_match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                users                  @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments          tournaments?           @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model team_roles {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  rosters_members rosters_members[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_member_roles {
+  code                String                @id @db.VarChar
+  label               String                @db.VarChar
+  is_default          Boolean?              @default(false)
+  tournaments_members tournaments_members[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_prizes {
+  id            String      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id String      @db.Uuid
+  position      Int
+  amount        Decimal     @db.Decimal(10, 2)
+  percentage    Decimal?    @db.Decimal(5, 2)
+  created_at    DateTime?   @default(now())
+  tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_registration_statuses {
+  code                      String                      @id @db.VarChar
+  label                     String                      @db.VarChar
+  is_default                Boolean?                    @default(false)
+  tournaments_registrations tournaments_registrations[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_sponsors {
+  tournament_id String      @db.Uuid
+  sponsor_id    String      @db.Uuid
+  tier          String?     @db.VarChar
+  sponsors      sponsors    @relation(fields: [sponsor_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([tournament_id, sponsor_id])
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_stage_statuses {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_stage_types {
+  code               String               @id @db.VarChar
+  label              String               @db.VarChar
+  is_default         Boolean?             @default(false)
+  tournaments_stages tournaments_stages[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_statuses {
+  code        String        @id @db.VarChar
+  label       String        @db.VarChar
+  is_default  Boolean?      @default(false)
+  tournaments tournaments[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournament_streams {
+  id                  String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id       String               @db.Uuid
+  match_id            String?              @db.Uuid
+  platform            String?              @db.VarChar
+  channel_name        String               @db.VarChar
+  stream_url          String               @db.VarChar
+  language            String?              @default("fr") @db.VarChar
+  is_official         Boolean?             @default(true)
+  created_at          DateTime?            @default(now())
+  updated_at          DateTime?            @updatedAt
+  tournaments_matches tournaments_matches? @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments         tournaments          @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments {
+  id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name                      String                      @db.VarChar
+  slug                      String                      @unique @db.VarChar
+  game                      String?                     @db.VarChar
+  status_code               String                      @db.VarChar
+  format                    String?                     @db.VarChar
+  platform                  String?                     @db.VarChar
+  cashprize                 Decimal?                    @default(0) @db.Decimal(10, 2)
+  prix_entree               String?                     @db.VarChar
+  nb_rosters                Int?
+  checkin_enabled           Boolean?                    @default(true)
+  checkin_start_at          DateTime?                   @db.Timestamp(6)
+  checkin_end_at            DateTime?                   @db.Timestamp(6)
+  start_at                  DateTime?                   @db.Timestamp(6)
+  end_at                    DateTime?                   @db.Timestamp(6)
+  registration_start_at     DateTime?                   @db.Timestamp(6)
+  registration_end_at       DateTime?                   @db.Timestamp(6)
+  created_at                DateTime?                   @default(now())
+  updated_at                DateTime?                   @updatedAt
+  studios                   studios[]
+  tournament_prizes         tournament_prizes[]
+  tournament_sponsors       tournament_sponsors[]
+  tournament_streams        tournament_streams[]
+  tournament_statuses       tournament_statuses         @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_members       tournaments_members[]
+  tournaments_registrations tournaments_registrations[]
+  tournaments_stages        tournaments_stages[]
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_match_games {
+  id                  String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id            String              @db.Uuid
+  game_number         Int?
+  map_name            String?             @db.VarChar
+  roster1_score       Int?                @default(0)
+  roster2_score       Int?                @default(0)
+  winner_roster_id    String?             @db.Uuid
+  created_at          DateTime?           @default(now())
+  updated_at          DateTime?           @updatedAt
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters             rosters?            @relation(fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_matches {
+  id                                                    String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  stage_id                                              String                    @db.Uuid
+  roster1_id                                            String?                   @db.Uuid
+  roster2_id                                            String?                   @db.Uuid
+  winner_roster_id                                      String?                   @db.Uuid
+  status_code                                           String                    @db.VarChar
+  round_number                                          Int?
+  roster1_checked_in                                    Boolean?                  @default(false)
+  roster2_checked_in                                    Boolean?                  @default(false)
+  scheduled_at                                          DateTime?                 @db.Timestamp(6)
+  started_at                                            DateTime?                 @db.Timestamp(6)
+  ended_at                                              DateTime?                 @db.Timestamp(6)
+  created_at                                            DateTime?                 @default(now())
+  updated_at                                            DateTime?                 @updatedAt
+  match_arbiters                                        match_arbiters[]
+  match_disputes                                        match_disputes[]
+  match_map_vetos                                       match_map_vetos[]
+  match_media                                           match_media[]
+  studios                                               studios[]
+  tournament_streams                                    tournament_streams[]
+  tournaments_match_games                               tournaments_match_games[]
+  rosters_tournaments_matches_roster1_idTorosters       rosters?                  @relation("tournaments_matches_roster1_idTorosters", fields: [roster1_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  rosters_tournaments_matches_roster2_idTorosters       rosters?                  @relation("tournaments_matches_roster2_idTorosters", fields: [roster2_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_stages                                    tournaments_stages        @relation(fields: [stage_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  match_statuses                                        match_statuses            @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  rosters_tournaments_matches_winner_roster_idTorosters rosters?                  @relation("tournaments_matches_winner_roster_idTorosters", fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_members {
+  user_id                 String                  @db.Uuid
+  tournament_id           String                  @db.Uuid
+  role_code               String                  @db.VarChar
+  created_at              DateTime?               @default(now())
+  tournament_member_roles tournament_member_roles @relation(fields: [role_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments             tournaments             @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users                   users                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([user_id, tournament_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_registrations {
+  roster_id                        String                           @db.Uuid
+  tournament_id                    String                           @db.Uuid
+  status_code                      String                           @db.VarChar
+  checked_in                       Boolean?                         @default(false)
+  checked_in_at                    DateTime?                        @db.Timestamp(6)
+  created_at                       DateTime?                        @default(now())
+  updated_at                       DateTime?                        @updatedAt
+  rosters                          rosters                          @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournament_registration_statuses tournament_registration_statuses @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments                      tournaments                      @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@id([roster_id, tournament_id])
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model tournaments_stages {
+  id                        String                    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  tournament_id             String                    @db.Uuid
+  name                      String?                   @db.VarChar
+  type_code                 String                    @db.VarChar
+  status_code               String                    @db.VarChar
+  nb_team                   Int?
+  bo_code                   String                    @db.VarChar
+  created_at                DateTime?                 @default(now())
+  updated_at                DateTime?                 @updatedAt
+  tournaments_matches       tournaments_matches[]
+  bo_options                bo_options                @relation(fields: [bo_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournament_stage_statuses tournament_stage_statuses @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  tournaments               tournaments               @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournament_stage_types    tournament_stage_types    @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+}
+
+/// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model user_game_accounts {
+  id           String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id      String    @db.Uuid
+  game         String    @db.VarChar
+  in_game_name String    @db.VarChar
+  game_user_id String?   @db.VarChar
+  verified     Boolean?  @default(false)
+  created_at   DateTime? @default(now())
+  updated_at   DateTime? @updatedAt
+  users        users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+
+  @@unique([user_id, game], map: "user_game_accounts_user_id_game_idx")
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model users {
+  id                                                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                   String                @unique @db.VarChar
+  display_name                                            String                @db.VarChar
+  created_at                                              DateTime?             @default(now())
+  updated_at                                              DateTime?             @updatedAt
+  clubs_members                                           clubs_members[]
+  invitations                                             invitations[]
+  match_arbiters                                          match_arbiters[]
+  match_disputes_match_disputes_handled_by_user_idTousers match_disputes[]      @relation("match_disputes_handled_by_user_idTousers")
+  match_disputes_match_disputes_opened_by_user_idTousers  match_disputes[]      @relation("match_disputes_opened_by_user_idTousers")
+  match_media                                             match_media[]
+  notifications                                           notifications[]
+  rosters_members                                         rosters_members[]
+  squads_members                                          squads_members[]
+  studios                                                 studios[]
+  tournaments_members                                     tournaments_members[]
+  user_game_accounts                                      user_game_accounts[]
+}
+
+/// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model veto_actions {
+  code            String            @id @db.VarChar
+  label           String            @db.VarChar
+  is_default      Boolean?          @default(false)
+  match_map_vetos match_map_vetos[]
+}
