@@ -8,3 +8,6 @@ Tester toutes les pages, les suivantes ont été testées :
 - Creer des phases
 - Creer et generer des poules avec leurs matchs
 - Listing de matchs dans dashboard tournament
+
+- [A FAIRE] Generer les matchs TBD vs TBD sur bracket
+- [A FAIRE] Voir pour la propagation de qualifies comme Pulse
