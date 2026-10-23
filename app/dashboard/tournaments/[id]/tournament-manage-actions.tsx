@@ -41,11 +41,11 @@ export function TournamentManageActions({
 
   return (
     <div className="flex items-center gap-2">
-      {currentStatus !== "ACCEPTED" && (
+      {currentStatus !== "CONFIRMED" && (
         <Button
           size="sm"
           disabled={loading}
-          onClick={() => handleUpdateStatus("ACCEPTED")}
+          onClick={() => handleUpdateStatus("CONFIRMED")}
           className="h-8 text-xs bg-emerald-600 hover:bg-emerald-500 text-white"
         >
           {loading ? <Loader2 className="size-3 animate-spin" /> : <Check className="size-3 mr-1" />}
@@ -53,12 +53,12 @@ export function TournamentManageActions({
         </Button>
       )}
 
-      {currentStatus !== "REFUSED" && (
+      {currentStatus !== "REJECTED" && (
         <Button
           size="sm"
           variant="outline"
           disabled={loading}
-          onClick={() => handleUpdateStatus("REFUSED")}
+          onClick={() => handleUpdateStatus("REJECTED")}
           className="h-8 text-xs border-red-500/20 text-red-400 hover:bg-red-500/10"
         >
           {loading ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3 mr-1" />}

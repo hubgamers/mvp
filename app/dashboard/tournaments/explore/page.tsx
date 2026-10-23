@@ -80,25 +80,29 @@ export default async function ExploreTournamentsPage({ searchParams }: ExploreTo
           <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
             <Link
               href="/dashboard/tournaments/explore"
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                !gameFilter ? "bg-cyan-500 text-slate-950" : "bg-white/5 text-slate-300 hover:bg-white/10"
-              }`}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${!gameFilter ? "bg-cyan-500 text-slate-950" : "bg-white/5 text-slate-300 hover:bg-white/10"
+                }`}
             >
               Tous les jeux
             </Link>
-            {gamesList.slice(0, 6).map((g) => (
-              <Link
-                key={g}
-                href={`/dashboard/tournaments/explore?game=${encodeURIComponent(g)}${statusFilter ? `&status=${statusFilter}` : ""}`}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${
-                  gameFilter.toLowerCase() === g.toLowerCase()
+            {gamesList.slice(0, 6).map(({ game }) => {
+              if (!game) return null; // Sécurité si game est null
+
+              const isSelected = gameFilter.toLowerCase() === game.name.toLowerCase();
+
+              return (
+                <Link
+                  key={game.id || game.name}
+                  href={`/dashboard/tournaments/explore?game=${encodeURIComponent(game.name)}${statusFilter ? `&status=${statusFilter}` : ""}`}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${isSelected
                     ? "bg-cyan-500 text-slate-950"
                     : "bg-white/5 text-slate-300 hover:bg-white/10"
-                }`}
-              >
-                {g}
-              </Link>
-            ))}
+                    }`}
+                >
+                  {game.name}
+                </Link>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -164,11 +168,11 @@ export default async function ExploreTournamentsPage({ searchParams }: ExploreTo
                     <span>
                       {t.start_at
                         ? new Date(t.start_at).toLocaleDateString("fr-FR", {
-                            day: "numeric",
-                            month: "short",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          })
+                          day: "numeric",
+                          month: "short",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })
                         : "Date à venir"}
                     </span>
                   </div>

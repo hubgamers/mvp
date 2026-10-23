@@ -38,6 +38,9 @@ import { getTournamentDetail } from "@/app/actions/tournament.actions"
 import { TournamentSponsorsTab } from "./TournamentSponsorsTab"
 import { TournamentStaffTab } from "./TournamentStaffTab"
 import { getInvitationsFromTournamentId } from "@/app/actions/invitation.actions"
+import { TournamentStagesTab } from "./TournamentStagesTab"
+import { TournamentRegistrationsTab } from "./TournamentRegistrationsTab"
+import { TournamentMatchesTab } from "./TournamentMatchesTab"
 
 interface TournamentDetailPageProps {
   params: Promise<{
@@ -56,16 +59,45 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
     redirect("/login")
   }
 
-  const tournament = (await getTournamentDetail(id)).tournament;
+  // Récupération en parallèle du tournoi et des données de référence pour les étapes
+  const [tournamentRes, stageTypes, boOptions, stageStatuses] = await Promise.all([
+    getTournamentDetail(id),
+    prisma.tournament_stage_types.findMany(),
+    prisma.bo_options.findMany(),
+    prisma.tournament_stage_statuses.findMany(),
+  ])
 
-  if (!tournament) {
+  const rawTournament = tournamentRes.tournament;
+
+  if (!rawTournament) {
     notFound()
   }
+
+  function serializeTournament(tournament: any) {
+    if (!tournament) return tournament;
+
+    return {
+      ...tournament,
+      cashprize: tournament.cashprize ? Number(tournament.cashprize) : null,
+      prix_entree: tournament.prix_entree ? Number(tournament.prix_entree) : null,
+      // Si tu as d'autres champs Decimal dans les sous-objets, tu peux les ajuster ici si nécessaire
+    };
+  }
+
+  const tournament = serializeTournament(rawTournament);
+
+  // Dans page.tsx
+  const rawInvitations = await getInvitationsFromTournamentId(tournament.id)
+  // Si ton action renvoie un objet type { invitations: [...] }, extrait-le :
+  const invitations = Array.isArray(rawInvitations) ? rawInvitations : (rawInvitations?.invitations || [])
+  const availableRosters = await prisma.rosters.findMany({ select: { id: true, name: true } })
+
+
 
   // Vérifier si l'utilisateur est membre du staff
   const userMembership = tournament.tournaments_members.find((m) => m.user_id === user.id)
   const isStaff = !!userMembership
-  const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
+  const isAdmin = userMembership?.role_code === "ADMIN"
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -184,165 +216,28 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
 
         {/* 1. Onglet Inscriptions */}
         <TabsContent value="registrations" className="space-y-4">
-          <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-white">
-                  Équipes enregistrées au tournoi
-                </CardTitle>
-                <CardDescription className="text-xs">
-                  Validez ou refusez les inscriptions d'équipes et vérifiez leur check-in.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {tournament.tournaments_registrations.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">
-                  Aucune équipe inscrite pour l'instant. Les inscriptions sont visibles sur la page publique.
-                </div>
-              ) : (
-                <div className="divide-y divide-white/5">
-                  {tournament.tournaments_registrations.map((reg) => (
-                    <div
-                      key={reg.roster_id}
-                      className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                    >
-                      <div className="space-y-1">
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-white text-sm">{reg.rosters.name}</span>
-                          <Badge
-                            variant={reg.status_code === "ACCEPTED" ? "default" : "outline"}
-                            className="text-[10px]"
-                          >
-                            {reg.tournament_registration_statuses?.label || reg.status_code}
-                          </Badge>
-                          {reg.checked_in && (
-                            <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
-                              Check-in OK
-                            </Badge>
-                          )}
-                        </div>
-                        <div className="text-xs text-muted-foreground">
-                          {reg.rosters.rosters_members.length} joueurs inscrits dans la lineup
-                        </div>
-                      </div>
-
-                      {isStaff && (
-                        <TournamentManageActions
-                          tournamentId={tournament.id}
-                          rosterId={reg.roster_id}
-                          currentStatus={reg.status_code}
-                          checkedIn={!!reg.checked_in}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TournamentRegistrationsTab
+            tournament={tournament}
+            invitations={invitations}
+            availableRosters={availableRosters}
+            isStaff={isStaff}
+          />
         </TabsContent>
 
         {/* 2. Onglet Étapes & Brackets */}
         <TabsContent value="stages" className="space-y-4">
-          <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle className="text-base font-bold text-white">Phases de compétition</CardTitle>
-                <CardDescription className="text-xs">
-                  Arbres d'élimination et formats de match définis pour ce tournoi.
-                </CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {tournament.tournaments_stages.length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">
-                  Aucune étape configurée. Ajoutez un arbre d'élimination directe ou double élimination.
-                </div>
-              ) : (
-                <div className="space-y-4">
-                  {tournament.tournaments_stages.map((stage) => (
-                    <div
-                      key={stage.id}
-                      className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col md:flex-row md:items-center justify-between gap-4"
-                    >
-                      <div>
-                        <div className="flex items-center gap-2 mb-1">
-                          <Badge variant="outline" className="text-[10px]">
-                            {stage.tournament_stage_types?.label || stage.type_code}
-                          </Badge>
-                          <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]">
-                            {stage.bo_options?.label || stage.bo_code}
-                          </Badge>
-                        </div>
-                        <h3 className="font-bold text-white text-sm">{stage.name || "Phase Principale"}</h3>
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          {stage.tournaments_matches.length} matchs générés dans cette étape
-                        </p>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <Badge variant="secondary" className="text-xs">
-                          {stage.tournament_stage_statuses?.label || stage.status_code}
-                        </Badge>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TournamentStagesTab
+            tournament={tournament}
+            stageTypes={stageTypes}
+            boOptions={boOptions}
+            stageStatuses={stageStatuses}
+            isStaff={isStaff}
+          />
         </TabsContent>
 
         {/* 3. Onglet Matchs */}
         <TabsContent value="matches" className="space-y-4">
-          <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
-            <CardHeader>
-              <CardTitle className="text-base font-bold text-white">Matchs du tournoi</CardTitle>
-              <CardDescription className="text-xs">
-                Accédez à la feuille de chaque confrontation pour saisir les scores ou résoudre les litiges.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              {tournament.tournaments_stages.flatMap((s) => s.tournaments_matches).length === 0 ? (
-                <div className="text-center py-10 text-muted-foreground text-xs">
-                  Aucun match n'a encore été programmé.
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  {tournament.tournaments_stages.flatMap((stage) =>
-                    stage.tournaments_matches.map((m) => (
-                      <div
-                        key={m.id}
-                        className="p-4 rounded-xl bg-black/30 border border-white/5 flex items-center justify-between gap-4"
-                      >
-                        <div className="flex items-center gap-3">
-                          <Badge variant="outline" className="text-[10px] uppercase font-mono">
-                            {m.match_statuses.label}
-                          </Badge>
-                          <div className="text-sm font-bold text-white">
-                            <span className="text-cyan-400">
-                              {m.rosters_tournaments_matches_roster1_idTorosters?.name || "TBD"}
-                            </span>
-                            <span className="text-xs text-muted-foreground mx-2">vs</span>
-                            <span className="text-purple-400">
-                              {m.rosters_tournaments_matches_roster2_idTorosters?.name || "TBD"}
-                            </span>
-                          </div>
-                        </div>
-
-                        <Button asChild size="sm" variant="outline" className="text-xs">
-                          <Link href={`/dashboard/matches/${m.id}`}>
-                            Gérer le match
-                          </Link>
-                        </Button>
-                      </div>
-                    ))
-                  )}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+          <TournamentMatchesTab tournament={tournament} />
         </TabsContent>
 
         {/* 4. Onglet Sponsors */}

@@ -35,7 +35,7 @@ export async function inviteTournamentMember(data: InviteMemberInput) {
                 code: invitationCode,
                 inviter_id: user.id, // L'admin connecté qui envoie l'invitation
                 email: data.email,   // L'e-mail de la personne invitée
-                target_type_code: "TOURNAMENT", 
+                target_type_code: "TOURNAMENT_STAFF", 
                 target_id: data.tournamentId,
                 status: "WAIT",
                 max_uses: 1,

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
 
-export async function acceptInvitation(code: string) {
+export async function acceptInvitation(code: string, rosterIdForTournament?: string) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, message: "Non authentifié." }
@@ -77,7 +77,30 @@ export async function acceptInvitation(code: string) {
           },
         })
       } else if (invitation.target_type_code === "TOURNAMENT") {
-        // Ajout de l'utilisateur dans l'équipe du tournoi (tournaments_members)
+        // Inscription de l'équipe au tournoi
+        if (!rosterIdForTournament) {
+          throw new Error("Un rosterId est requis pour inscrire une équipe au tournoi.")
+        }
+
+        await tx.tournaments_registrations.upsert({
+          where: {
+            tournament_id_roster_id: {
+              tournament_id: invitation.target_id,
+              roster_id: rosterIdForTournament,
+            },
+          },
+          create: {
+            tournament_id: invitation.target_id,
+            roster_id: rosterIdForTournament,
+            status_code: "CONFIRMED",
+            checked_in: false,
+          },
+          update: {
+            status_code: "CONFIRMED",
+          },
+        })
+      } else if (invitation.target_type_code === "TOURNAMENT_STAFF") {
+        // Inscription de l'utilisateur dans le staff du tournoi (tournaments_members)
         await tx.tournaments_members.upsert({
           where: {
             user_id_tournament_id: {
@@ -88,14 +111,15 @@ export async function acceptInvitation(code: string) {
           create: {
             user_id: user.id,
             tournament_id: invitation.target_id,
-            role_code: "ARBITER", // Ou tu peux stocker le rôle souhaité si tu as un champ dédié dans l'invitation
+            role_code: "STAFF", // ou "ARBITER" selon tes rôles
           },
           update: {
-            role_code: "ARBITER",
+            role_code: "STAFF",
           },
         })
       }
 
+      // Marquer l'invitation comme acceptée
       await tx.invitations.update({
         where: { code },
         data: {
@@ -106,10 +130,12 @@ export async function acceptInvitation(code: string) {
     })
 
     revalidatePath("/dashboard/invitations")
+    revalidatePath(`/dashboard/tournaments/${invitation.target_id}`)
+    
     return { success: true, message: "Invitation acceptée avec succès." }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Erreur acceptInvitation:", error)
-    return { success: false, message: "Impossible d'accepter l'invitation." }
+    return { success: false, message: error.message || "Impossible d'accepter l'invitation." }
   }
 }
 
