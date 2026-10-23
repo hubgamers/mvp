@@ -3,21 +3,13 @@ import { notFound, redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { prisma } from "@/lib/prisma"
 import {
-  Swords,
-  Shield,
-  Clock,
   ArrowLeft,
   CheckCircle2,
-  AlertTriangle,
-  Trophy,
-  Users,
-  Gamepad2,
   MessageSquare,
-  Camera,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card } from "@/components/ui/card"
 import { MatchDetailClient } from "./match-detail-client"
 
 interface MatchPageProps {
@@ -43,7 +35,14 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
       match_statuses: true,
       tournaments_stages: {
         include: {
-          tournaments: true,
+          tournaments: {
+            include: {
+              // On inclut les membres/staff du tournoi (Admins, Arbitres, Organisiateurs)
+              tournaments_members: {
+                where: { user_id: user.id },
+              },
+            },
+          },
           bo_options: true,
         },
       },
@@ -83,6 +82,12 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
         },
         orderBy: { created_at: "desc" },
       },
+      match_messages: {
+        include: {
+          users: { select: { id: true, display_name: true } },
+        },
+        orderBy: { created_at: "asc" },
+      },
       match_media: {
         include: {
           match_media_types: true,
@@ -98,10 +103,11 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
   const roster1 = match.rosters_tournaments_matches_roster1_idTorosters
   const roster2 = match.rosters_tournaments_matches_roster2_idTorosters
 
+  // 1. Vérification si l'utilisateur est un Membre du Roster 1 ou Roster 2
   const isRoster1Member = roster1?.rosters_members.some((m) => m.user_id === user.id)
   const isRoster2Member = roster2?.rosters_members.some((m) => m.user_id === user.id)
-  const isArbiter = match.match_arbiters.some((a) => a.user_id === user.id)
 
+  // 2. Vérification si l'utilisateur est Capitaine ou Joueur
   const isRoster1Captain = roster1?.rosters_members.some(
     (m) => m.user_id === user.id && m.role_code === "CAPTAIN"
   )
@@ -109,7 +115,19 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
     (m) => m.user_id === user.id && m.role_code === "CAPTAIN"
   )
 
-  const canManageScore = isArbiter || isRoster1Captain || isRoster2Captain
+  // 3. Vérification si l'utilisateur est un Arbitre désigné sur le Match
+  const isDirectArbiter = match.match_arbiters.some((a) => a.user_id === user.id)
+
+  // 4. Vérification si l'utilisateur est un Admin/Arbitre/Staff du Tournoi (tournaments_members)
+  const tournamentStaff = match.tournaments_stages.tournaments.tournaments_members[0]
+  const isTournamentAdmin = tournamentStaff && ["ADMIN", "ARBITER", "ORGANIZER", "STAFF"].includes(tournamentStaff.role_code)
+
+  // Combined Arbitre/Admin Status
+  const isArbiterOrAdmin = isDirectArbiter || isTournamentAdmin
+
+  // Droit de gestion global (Scores, Tchat, Litiges) :
+  // Autorisé pour : l'Arbitre/Admin du tournoi, l'Arbitre du match, ou les Capitaines / Joueurs des rosters concernés
+  const canManageScore = isArbiterOrAdmin || isRoster1Captain || isRoster2Captain || isRoster1Member || isRoster2Member
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-6xl mx-auto w-full">
@@ -137,12 +155,11 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
         </div>
 
         <div className="flex items-center gap-2">
-          <Button asChild size="sm" variant="outline" className="border-white/10 text-xs">
-            <Link href="/dashboard/chats">
-              <MessageSquare className="size-3.5 mr-1.5 text-cyan-400" />
-              Chat du match
-            </Link>
-          </Button>
+          {isTournamentAdmin && (
+            <Badge className="bg-amber-500/10 text-amber-400 border-amber-500/20 text-xs">
+              Staff Tournoi
+            </Badge>
+          )}
         </div>
       </div>
 
@@ -209,13 +226,13 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
         </Card>
       </div>
 
-      {/* Gestion interactive des scores et check-in */}
+      {/* Composant interactif client pour les scores, le tchat et les litiges */}
       <MatchDetailClient
         match={match}
         canManageScore={canManageScore}
-        isRoster1Captain={!!isRoster1Captain}
-        isRoster2Captain={!!isRoster2Captain}
-        isArbiter={isArbiter}
+        isRoster1Captain={!!isRoster1Captain || !!isRoster1Member}
+        isRoster2Captain={!!isRoster2Captain || !!isRoster2Member}
+        isArbiter={isArbiterOrAdmin}
       />
     </div>
   )

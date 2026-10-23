@@ -107,19 +107,42 @@ model match_arbiters {
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model match_disputes {
-  id                                             String              @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  match_id                                       String              @db.Uuid
-  opened_by_user_id                              String?             @db.Uuid
-  handled_by_user_id                             String?             @db.Uuid
+  id                                             String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id                                       String                   @db.Uuid
+  opened_by_user_id                              String?                  @db.Uuid
+  handled_by_user_id                             String?                  @db.Uuid
   reason                                         String
-  status_code                                    String              @db.VarChar
+  status_code                                    String                   @db.VarChar
   resolution_notes                               String?
-  created_at                                     DateTime?           @default(now()) @db.Timestamp(6)
-  updated_at                                     DateTime?           @updatedAt @db.Timestamp(6)
-  users_match_disputes_handled_by_user_idTousers users?              @relation("match_disputes_handled_by_user_idTousers", fields: [handled_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  tournaments_matches                            tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  users_match_disputes_opened_by_user_idTousers  users?              @relation("match_disputes_opened_by_user_idTousers", fields: [opened_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  dispute_statuses                               dispute_statuses    @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  created_at                                     DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at                                     DateTime?                @updatedAt @db.Timestamp(6)
+  users_match_disputes_handled_by_user_idTousers users?                   @relation("match_disputes_handled_by_user_idTousers", fields: [handled_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  tournaments_matches                            tournaments_matches      @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  users_match_disputes_opened_by_user_idTousers  users?                   @relation("match_disputes_opened_by_user_idTousers", fields: [opened_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  dispute_statuses                               dispute_statuses         @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  match_dispute_messages                         match_dispute_messages[]
+}
+
+model match_dispute_messages {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  dispute_id String    @db.Uuid
+  user_id    String    @db.Uuid
+  message    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  match_disputes match_disputes @relation(fields: [dispute_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users          users          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+}
+
+model match_messages {
+  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  match_id   String    @db.Uuid
+  user_id    String    @db.Uuid
+  message    String
+  created_at DateTime? @default(now()) @db.Timestamp(6)
+
+  tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -422,10 +445,10 @@ model tournament_streams {
 }
 
 model games {
-  id         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  name       String    @db.VarChar
-  created_at DateTime? @default(now()) @db.Timestamp(6)
-  updated_at DateTime? @updatedAt @db.Timestamp(6)
+  id          String        @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  name        String        @db.VarChar
+  created_at  DateTime?     @default(now()) @db.Timestamp(6)
+  updated_at  DateTime?     @updatedAt @db.Timestamp(6)
   tournaments tournaments[]
 }
 
@@ -435,7 +458,7 @@ model tournaments {
   id                        String                      @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   name                      String                      @db.VarChar
   slug                      String                      @unique @db.VarChar
-  game_id                   String                     @db.Uuid
+  game_id                   String                      @db.Uuid
   status_code               String                      @db.VarChar
   format                    String?                     @db.VarChar
   platform                  String?                     @db.VarChar
@@ -488,6 +511,7 @@ model tournaments_matches {
   winner_roster_id                                      String?                   @db.Uuid
   status_code                                           String                    @db.VarChar
   round_number                                          Int?
+  group_name                                            String?                   @db.VarChar
   roster1_checked_in                                    Boolean?                  @default(false)
   roster2_checked_in                                    Boolean?                  @default(false)
   scheduled_at                                          DateTime?                 @db.Timestamp(6)
@@ -499,6 +523,7 @@ model tournaments_matches {
   match_disputes                                        match_disputes[]
   match_map_vetos                                       match_map_vetos[]
   match_media                                           match_media[]
+  match_messages                                        match_messages[]
   studios                                               studios[]
   tournament_streams                                    tournament_streams[]
   tournaments_match_games                               tournaments_match_games[]
@@ -550,6 +575,7 @@ model tournaments_stages {
   status_code               String                    @db.VarChar
   nb_team                   Int?
   bo_code                   String                    @db.VarChar
+  group_name                String?                   @db.VarChar
   created_at                DateTime?                 @default(now()) @db.Timestamp(6)
   updated_at                DateTime?                 @updatedAt @db.Timestamp(6)
   tournaments_matches       tournaments_matches[]
@@ -577,23 +603,25 @@ model user_game_accounts {
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model users {
-  id                                                      String                @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
-  email                                                   String                @unique @db.VarChar
-  display_name                                            String                @db.VarChar
-  created_at                                              DateTime?             @default(now()) @db.Timestamp(6)
-  updated_at                                              DateTime?             @updatedAt @db.Timestamp(6)
+  id                                                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  email                                                   String                   @unique @db.VarChar
+  display_name                                            String                   @db.VarChar
+  created_at                                              DateTime?                @default(now()) @db.Timestamp(6)
+  updated_at                                              DateTime?                @updatedAt @db.Timestamp(6)
   clubs_members                                           clubs_members[]
   invitations                                             invitations[]
   match_arbiters                                          match_arbiters[]
-  match_disputes_match_disputes_handled_by_user_idTousers match_disputes[]      @relation("match_disputes_handled_by_user_idTousers")
-  match_disputes_match_disputes_opened_by_user_idTousers  match_disputes[]      @relation("match_disputes_opened_by_user_idTousers")
+  match_disputes_match_disputes_handled_by_user_idTousers match_disputes[]         @relation("match_disputes_handled_by_user_idTousers")
+  match_disputes_match_disputes_opened_by_user_idTousers  match_disputes[]         @relation("match_disputes_opened_by_user_idTousers")
   match_media                                             match_media[]
+  match_messages                                          match_messages[]
   notifications                                           notifications[]
   rosters_members                                         rosters_members[]
   squads_members                                          squads_members[]
   studios                                                 studios[]
   tournaments_members                                     tournaments_members[]
   user_game_accounts                                      user_game_accounts[]
+  match_dispute_messages                                  match_dispute_messages[]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.

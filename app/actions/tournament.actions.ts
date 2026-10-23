@@ -291,3 +291,48 @@ export async function getTournamentDetail(id: string) {
         return { success: false, message: "Impossible d'afficher les tournois.", games: [] };
     }
 }
+
+
+import { revalidatePath } from "next/cache"
+export async function resetTournament(tournamentId: string) {
+    const supabase = await createClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) return { success: false, message: "Non authentifié." }
+
+    try {
+        // 1. Récupérer toutes les étapes associées au tournoi
+        const stages = await prisma.tournaments_stages.findMany({
+            where: { tournament_id: tournamentId },
+            select: { id: true }
+        })
+
+        const stageIds = stages.map((s) => s.id)
+
+        // 2. Supprimer tous les matchs liés à ces étapes
+        if (stageIds.length > 0) {
+            await prisma.tournaments_matches.deleteMany({
+                where: {
+                    stage_id: { in: stageIds }
+                }
+            })
+
+            // 3. Réinitialiser le statut des étapes à "PENDING"
+            await prisma.tournaments_stages.updateMany({
+                where: { tournament_id: tournamentId },
+                data: { status_code: "PENDING" }
+            })
+        }
+
+        // 4. (Optionnel) Réinitialiser le statut du tournoi s'il était en cours
+        await prisma.tournaments.update({
+            where: { id: tournamentId },
+            data: { status_code: "ONGOING" }
+        })
+
+        revalidatePath(`/dashboard/tournaments/${tournamentId}`)
+        return { success: true, message: "Le tournoi a été réinitialisé avec succès !" }
+    } catch (error) {
+        console.error("Erreur resetTournament:", error)
+        return { success: false, message: "Erreur lors de la réinitialisation du tournoi." }
+    }
+}

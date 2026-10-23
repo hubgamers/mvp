@@ -2,23 +2,24 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { Plus, Layers, Pencil, Trash2, Settings } from "lucide-react"
+import { Plus, Layers, Pencil, Trash2, Settings, RotateCcw } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter 
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { saveTournamentStage, removeTournamentStage } from "@/app/actions/tournament-stage.actions"
 import { StageManagerModal } from "./StageManagerModal"
 import { toast } from "sonner"
+import { resetTournament } from "@/app/actions/tournament.actions"
 
 interface TournamentStagesTabProps {
   tournament: any
@@ -38,7 +39,27 @@ export function TournamentStagesTab({
   const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  
+
+  const [isResetting, setIsResetting] = useState(false)
+
+  async function handleResetTournament() {
+    const confirmed = confirm(
+      "⚠️ ATTENTION : Voulez-vous vraiment réinitialiser tout le tournoi ?\n\nTous les matchs de toutes les étapes ainsi que leurs résultats seront définitivement supprimés."
+    )
+    if (!confirmed) return
+
+    setIsResetting(true)
+    const result = await resetTournament(tournament.id)
+    setIsResetting(false)
+
+    if (result.success) {
+      toast.success(result.message)
+      router.refresh()
+    } else {
+      toast.error(result.message)
+    }
+  }
+
   // États pour la création/modification d'une étape
   const [selectedStage, setSelectedStage] = useState<any | null>(null)
 
@@ -115,6 +136,25 @@ export function TournamentStagesTab({
               Ajouter une étape
             </Button>
           )}
+          {isStaff && (
+            <div className="flex items-center gap-2">
+              <Button
+                onClick={handleResetTournament}
+                disabled={isResetting}
+                size="sm"
+                variant="destructive"
+                className="bg-red-500/20 border border-red-500/30 text-red-400 hover:bg-red-500/30 text-xs"
+              >
+                <RotateCcw className="size-3.5 mr-1.5" />
+                {isResetting ? "Réinitialisation..." : "Réinitialiser le tournoi"}
+              </Button>
+
+              <Button onClick={handleOpenCreate} size="sm" className="bg-cyan-500 text-slate-950 hover:bg-cyan-400">
+                <Plus className="size-4 mr-1.5" />
+                Ajouter une étape
+              </Button>
+            </div>
+          )}
         </CardHeader>
         <CardContent>
           {tournament.tournaments_stages.length === 0 ? (
@@ -186,6 +226,20 @@ export function TournamentStagesTab({
                             </Button>
                           </div>
                         )}
+                        {isStaff && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-amber-500/20 text-amber-400 hover:bg-amber-500/10 text-xs gap-1.5"
+                            onClick={() => {
+                              if (confirm("Attention : Régénérer les matchs effacera tous les scores et matchs actuels de cette phase. Continuer ?")) {
+                                // Appeler votre fonction de génération ici
+                              }
+                            }}
+                          >
+                            Régénérer les matchs
+                          </Button>
+                        )}
                       </div>
                     )}
                   </div>
@@ -211,12 +265,12 @@ export function TournamentStagesTab({
           <form onSubmit={handleSubmit} className="space-y-4 pt-2">
             <div className="space-y-1.5">
               <Label htmlFor="name" className="text-xs">Nom de l'étape</Label>
-              <Input 
-                id="name" 
-                name="name" 
+              <Input
+                id="name"
+                name="name"
                 defaultValue={selectedStage?.name || ""}
-                placeholder="Ex: Quarts de finale, Poule A" 
-                className="bg-black/30 border-white/10 text-xs" 
+                placeholder="Ex: Quarts de finale, Poule A"
+                className="bg-black/30 border-white/10 text-xs"
               />
             </div>
 
@@ -258,13 +312,13 @@ export function TournamentStagesTab({
 
             <div className="space-y-1.5">
               <Label htmlFor="nb_team" className="text-xs">Nombre d'équipes</Label>
-              <Input 
-                id="nb_team" 
-                name="nb_team" 
-                type="number" 
+              <Input
+                id="nb_team"
+                name="nb_team"
+                type="number"
                 defaultValue={selectedStage?.nb_team || ""}
-                placeholder="Ex: 8, 16" 
-                className="bg-black/30 border-white/10 text-xs" 
+                placeholder="Ex: 8, 16"
+                className="bg-black/30 border-white/10 text-xs"
               />
             </div>
 
@@ -285,8 +339,8 @@ export function TournamentStagesTab({
             </div>
 
             <DialogFooter className="pt-4">
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 disabled={loading}
                 className="w-full bg-cyan-500 text-slate-950 hover:bg-cyan-400 text-xs font-semibold"
               >

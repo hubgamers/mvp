@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
-import { Users, Shuffle, Play, Trash2 } from "lucide-react"
+import { Users, Shuffle, Play, Layers, Swords } from "lucide-react"
 import { generateStageMatches } from "@/app/actions/tournament-stage.actions"
 
 interface StageManagerModalProps {
@@ -64,7 +64,6 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
     // Activer / Désactiver une équipe
     function toggleTeamSelection(team: any) {
         if (selectedTeams.some((t) => t.id === team.id)) {
-            // Retirer des sélections et de toutes les poules
             setSelectedTeams(selectedTeams.filter((t) => t.id !== team.id))
             const updatedPools = { ...pools }
             Object.keys(updatedPools).forEach((pKey) => {
@@ -72,7 +71,6 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
             })
             setPools(updatedPools)
         } else {
-            // Ajouter aux sélections et placer par défaut dans la première poule
             setSelectedTeams([...selectedTeams, team])
             const firstPoolKey = Object.keys(pools)[0]
             if (firstPoolKey) {
@@ -88,12 +86,10 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
     function handleMoveTeamToPool(team: any, targetPool: string) {
         const updatedPools = { ...pools }
 
-        // Retirer l'équipe de sa poule actuelle
         Object.keys(updatedPools).forEach((pKey) => {
             updatedPools[pKey] = updatedPools[pKey].filter((t: any) => t.id !== team.id)
         })
 
-        // L'ajouter dans la poule cible
         if (updatedPools[targetPool]) {
             updatedPools[targetPool].push(team)
         }
@@ -101,7 +97,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
         setPools(updatedPools)
     }
 
-    // Mélange aléatoire optionnel
+    // Mélange aléatoire optionnel pour les poules
     function handleShuffleIntoPools() {
         if (selectedTeams.length === 0) return toast.error("Aucune équipe sélectionnée.")
         
@@ -140,6 +136,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
     async function handleGenerate() {
         setLoading(true)
         try {
+            // Si c'est un bracket, on s'assure d'avoir un nombre pair (ou puissance de 2 conseillée)
             const payloadData = isGroupStage ? pools : selectedTeams
 
             const result = await generateStageMatches({
@@ -175,11 +172,14 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                             {stage.bo_options?.label || stage.bo_code}
                         </Badge>
                     </div>
-                    <DialogTitle className="text-xl font-bold">
+                    <DialogTitle className="text-xl font-bold flex items-center gap-2">
+                        {isGroupStage ? <Layers className="size-5 text-cyan-400" /> : <Swords className="size-5 text-purple-400" />}
                         Configuration de l'étape : {stage.name}
                     </DialogTitle>
                     <DialogDescription className="text-xs text-slate-400">
-                        {isGroupStage ? "Gérez le nombre de poules et placez manuellement chaque équipe dans la poule de votre choix." : "Organisez l'ordre des têtes de série pour le premier tour de l'arbre."}
+                        {isGroupStage 
+                            ? "Gérez le nombre de poules et répartissez chaque équipe dans sa poule respective (Poule A, Poule B...)." 
+                            : "Organisez l'ordre des têtes de série (seeds) pour construire l'arbre des matchs jusqu'à la finale."}
                     </DialogDescription>
                 </DialogHeader>
 
@@ -215,7 +215,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                         </div>
                     </div>
 
-                    {/* SECTION 2 : CONFIGURATION ET PLACEMENT MANUEL DES POULES */}
+                    {/* SECTION 2 : CONFIGURATION ET PLACEMENT DES POULES (ROUND ROBIN) */}
                     {isGroupStage && (
                         <div className="space-y-4">
                             <div className="p-4 rounded-xl bg-black/30 border border-white/5 flex flex-col sm:flex-row items-center justify-between gap-4">
@@ -242,18 +242,18 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                                 </Button>
                             </div>
 
-                            {/* Affichage des poules avec sélecteur de déplacement manuel */}
+                            {/* Affichage des poules distinctes */}
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {Object.entries(pools).map(([poolName, teams]: [string, any[]]) => (
-                                    <div key={poolName} className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3">
-                                        <h5 className="font-bold text-xs text-cyan-400 uppercase tracking-wider flex items-center justify-between">
-                                            {poolName}
-                                            <Badge variant="secondary" className="text-[10px]">{teams.length} équipe(s)</Badge>
+                                    <div key={poolName} className="p-4 rounded-xl bg-black/40 border border-white/10 space-y-3 shadow-md">
+                                        <h5 className="font-bold text-xs text-cyan-400 uppercase tracking-wider flex items-center justify-between border-b border-white/5 pb-2">
+                                            <span>{poolName}</span>
+                                            <Badge variant="secondary" className="text-[10px] font-mono">{teams.length} équipe(s)</Badge>
                                         </h5>
 
                                         <div className="space-y-2">
                                             {teams.length === 0 ? (
-                                                <p className="text-[11px] text-muted-foreground italic py-2 text-center border border-dashed border-white/5 rounded-lg">
+                                                <p className="text-[11px] text-muted-foreground italic py-3 text-center border border-dashed border-white/5 rounded-lg">
                                                     Aucune équipe dans cette poule
                                                 </p>
                                             ) : (
@@ -265,7 +265,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                                                         <select
                                                             value={poolName}
                                                             onChange={(e) => handleMoveTeamToPool(team, e.target.value)}
-                                                            className="h-7 rounded bg-slate-900 border border-white/10 px-2 text-[11px] text-cyan-300 outline-none"
+                                                            className="h-7 rounded bg-slate-900 border border-white/10 px-2 text-[11px] text-cyan-300 outline-none cursor-pointer"
                                                         >
                                                             {Object.keys(pools).map((pKey) => (
                                                                 <option key={pKey} value={pKey}>
@@ -283,26 +283,26 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                         </div>
                     )}
 
-                    {/* SECTION 3 : BRACKET SEEDS */}
+                    {/* SECTION 3 : BRACKET / ARBRE D'ÉLIMINATION */}
                     {isBracketStage && (
                         <div className="space-y-4">
                             <div className="p-3 rounded-xl bg-black/30 border border-white/5">
                                 <h4 className="text-xs font-bold uppercase tracking-wider text-purple-400">
-                                    Ordre des Têtes de Série (Bracket)
+                                    Ordre des Têtes de Série (Seeds)
                                 </h4>
                                 <p className="text-xs text-muted-foreground">
-                                    Utilisez les flèches pour modifier l'ordre des équipes du premier tour.
+                                    Ajustez l'ordre des équipes du premier tour (Seed 1 vs dernier, etc.). Les tours suivants se généreront automatiquement en TBD.
                                 </p>
                             </div>
 
-                            <div className="space-y-2 max-h-52 overflow-y-auto p-2 rounded-xl bg-black/30 border border-white/5">
+                            <div className="space-y-2 max-h-56 overflow-y-auto p-2 rounded-xl bg-black/30 border border-white/5">
                                 {selectedTeams.map((team, index) => (
                                     <div 
                                         key={team.id}
                                         className="p-2.5 rounded-lg bg-white/5 border border-white/5 text-xs text-white flex items-center justify-between"
                                     >
                                         <div className="flex items-center gap-3">
-                                            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px]">
+                                            <Badge className="bg-purple-500/20 text-purple-300 border-purple-500/30 text-[10px] font-mono">
                                                 Seed #{index + 1}
                                             </Badge>
                                             <span className="font-semibold">{team.name}</span>
@@ -311,7 +311,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                className="h-7 px-2 text-xs text-slate-300 hover:text-white"
+                                                className="h-7 px-2 text-xs text-slate-300 hover:text-white hover:bg-white/10"
                                                 disabled={index === 0}
                                                 onClick={() => handleMoveSeed(index, 'up')}
                                             >
@@ -320,7 +320,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                                             <Button
                                                 size="sm"
                                                 variant="ghost"
-                                                className="h-7 px-2 text-xs text-slate-300 hover:text-white"
+                                                className="h-7 px-2 text-xs text-slate-300 hover:text-white hover:bg-white/10"
                                                 disabled={index === selectedTeams.length - 1}
                                                 onClick={() => handleMoveSeed(index, 'down')}
                                             >
@@ -334,7 +334,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                     )}
                 </div>
 
-                <DialogFooter>
+                <DialogFooter className="border-t border-white/10 pt-4">
                     <Button
                         variant="outline"
                         onClick={onClose}
@@ -348,7 +348,7 @@ export function StageManagerModal({ stage, tournament, isOpen, onClose }: StageM
                         className="bg-cyan-500 text-slate-950 hover:bg-cyan-400 text-xs font-semibold gap-1.5"
                     >
                         <Play className="size-3.5" />
-                        {loading ? "Génération..." : "Générer les matchs"}
+                        {loading ? "Génération en cours..." : "Générer / Régénérer les matchs"}
                     </Button>
                 </DialogFooter>
             </DialogContent>
