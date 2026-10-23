@@ -88,10 +88,10 @@ export async function acceptInvitation(code: string) {
           create: {
             user_id: user.id,
             tournament_id: invitation.target_id,
-            role_code: "ARBITRE", // Ou tu peux stocker le rôle souhaité si tu as un champ dédié dans l'invitation
+            role_code: "ARBITER", // Ou tu peux stocker le rôle souhaité si tu as un champ dédié dans l'invitation
           },
           update: {
-            role_code: "ARBITRE",
+            role_code: "ARBITER",
           },
         })
       }

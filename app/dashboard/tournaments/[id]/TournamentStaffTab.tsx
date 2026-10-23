@@ -4,14 +4,14 @@ import { useState } from "react"
 import { Shield, Mail, UserPlus, Trash2, Clock, CheckCircle2, Send } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -46,7 +46,7 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
 
       if (res.success) {
         setIsOpen(false)
-        (event.target as HTMLFormElement).reset()
+          (event.target as HTMLFormElement).reset()
       } else {
         alert(res.message)
       }
@@ -70,6 +70,11 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
   // Filtrer les invitations en attente (statut WAIT) liées à ce tournoi
   const pendingInvitations = tournament.invitations?.filter((inv: any) => inv.status === "WAIT") || []
 
+  // Vérifier si l'utilisateur est membre du staff
+  const userMembership = tournament.tournaments_members.find((m) => m.user_id === currentUserId)
+  const isStaff = !!userMembership
+  const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
+
   return (
     <TabsContent value="staff" className="space-y-4">
       <Card className="border-white/10 bg-card/60 backdrop-blur-sm">
@@ -83,12 +88,14 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
 
           {/* Bouton pour ouvrir la modale d'invitation */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
-            <DialogTrigger asChild>
-              <Button size="sm">
-                <UserPlus className="size-4" />
-                Inviter un membre
-              </Button>
-            </DialogTrigger>
+            {isAdmin && (
+              <DialogTrigger asChild>
+                <Button size="sm">
+                  <UserPlus className="size-4" />
+                  Inviter un membre
+                </Button>
+              </DialogTrigger>
+            )}
             <DialogContent className="sm:max-w-[425px] border-white/10 bg-card text-card-foreground">
               <form onSubmit={handleInvite}>
                 <DialogHeader>
@@ -172,10 +179,10 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
                       {member.tournament_member_roles?.label || member.role_code}
                     </Badge>
 
-                    {member.user_id !== currentUserId && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon-sm" 
+                    {isAdmin && member.user_id !== currentUserId && (
+                      <Button
+                        variant="ghost"
+                        size="icon-sm"
                         onClick={() => handleRemove(member.user_id)}
                         className="text-muted-foreground hover:text-destructive"
                       >

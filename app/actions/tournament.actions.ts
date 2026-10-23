@@ -194,14 +194,17 @@ export async function getGameListFromTournaments() {
     try {
         const gamesList = await prisma.tournaments.findMany({
             select: { game: true },
-            distinct: ["game"],
-            where: { game: { not: null } },
+            distinct: ["game_id"], // Ensure distinct matches your relation scalar if needed
+            where: {
+                game: {
+                    isNot: null, // Checks that the related record exists
+                },
+            },
         });
-
         return {
             success: true,
             message: "Affichage des jeux avec succès.",
-            games: gamesList.map(g => g.game).filter(Boolean) as string[]
+            games: gamesList
         };
     } catch (error) {
         console.error("Erreur getGameListFromTournaments:", error);

@@ -65,6 +65,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
   // Vérifier si l'utilisateur est membre du staff
   const userMembership = tournament.tournaments_members.find((m) => m.user_id === user.id)
   const isStaff = !!userMembership
+  const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -94,12 +95,14 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button asChild variant="outline" size="sm" className="border-white/10 text-xs">
-            <Link href={`/tournaments/${tournament.slug}/edit`}>
-              <Edit className="size-3.5 mr-1.5" />
-              Editer
-            </Link>
-          </Button>
+          {isAdmin && (
+            <Button asChild variant="outline" size="sm" className="border-white/10 text-xs">
+              <Link href={`/tournaments/${tournament.slug}/edit`}>
+                <Edit className="size-3.5 mr-1.5" />
+                Editer
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline" size="sm" className="border-white/10 text-xs">
             <Link href={`/tournaments/${tournament.slug}`} target="_blank">
               <ExternalLink className="size-3.5 mr-1.5" />
@@ -343,7 +346,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </TabsContent>
 
         {/* 4. Onglet Sponsors */}
-        <TournamentSponsorsTab tournament={tournament} />
+        <TournamentSponsorsTab tournament={tournament} currentUserId={user.id} />
 
         {/* 5. Onglet Staff */}
         <TournamentStaffTab tournament={tournament} currentUserId={user.id} />

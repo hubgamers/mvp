@@ -3,3 +3,4 @@ Tester toutes les pages, les suivantes ont été testées :
 - Mes tournois
 - Création de tournoi via le formulaire
 - CRUD Sponsor dans tournoi
+- Ajoute un membre dans le staff du tournoi via invitation

@@ -4,24 +4,24 @@ import { useState } from "react"
 import { Building, Plus, Globe, Image as ImageIcon, Trash2, Edit } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogDescription, 
-  DialogFooter, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogTrigger 
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger
 } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { TabsContent } from "@/components/ui/tabs"
 import { saveSponsor, deleteTournamentSponsor } from "@/app/actions/sponsor.actions" // Ajuste le chemin selon ton arborescence
 
-export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
+export function TournamentSponsorsTab({ tournament, currentUserId }: { tournament: any; currentUserId: string }) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
-  
+
   // Stocke le sponsor sélectionné pour l'édition (null si création)
   const [selectedSponsor, setSelectedSponsor] = useState<any | null>(null)
 
@@ -48,36 +48,36 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
     setIsLoading(true)
 
     const formData = new FormData(event.currentTarget)
-    
+
     const name = formData.get("name")?.toString() || ""
     const logo_url = formData.get("logo_url")?.toString() || ""
     const website_url = formData.get("website_url")?.toString() || ""
     const tier = formData.get("tier")?.toString() || ""
 
     if (!name || !logo_url) {
-        setIsLoading(false)
-        return
+      setIsLoading(false)
+      return
     }
 
     try {
-        const data = { 
-            id: selectedSponsor?.id, // ID du sponsor si on édite
-            tournamentId: tournament.id, 
-            name, 
-            logo_url, 
-            website_url, 
-            tier 
-        }
-        
-        const res = await saveSponsor(data)
+      const data = {
+        id: selectedSponsor?.id, // ID du sponsor si on édite
+        tournamentId: tournament.id,
+        name,
+        logo_url,
+        website_url,
+        tier
+      }
 
-        if (res.success) {
-            setIsOpen(false)
-        }
+      const res = await saveSponsor(data)
+
+      if (res.success) {
+        setIsOpen(false)
+      }
     } catch (error) {
-        console.error(error)
+      console.error(error)
     } finally {
-        setIsLoading(false)
+      setIsLoading(false)
     }
   }
 
@@ -87,16 +87,21 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
 
     setIsLoading(true)
     try {
-        const res = await deleteTournamentSponsor(tournament.id, selectedSponsor.id)
-        if (res.success) {
-            setIsOpen(false)
-        }
+      const res = await deleteTournamentSponsor(tournament.id, selectedSponsor.id)
+      if (res.success) {
+        setIsOpen(false)
+      }
     } catch (error) {
-        console.error(error)
+      console.error(error)
     } finally {
-        setIsLoading(false)
+      setIsLoading(false)
     }
   }
+
+  // Vérifier si l'utilisateur est membre du staff
+  const userMembership = tournament.tournaments_members.find((m) => m.user_id === currentUserId)
+  const isStaff = !!userMembership
+  const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
 
   return (
     <TabsContent value="sponsors" className="space-y-4">
@@ -109,10 +114,12 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
             </CardDescription>
           </div>
 
-          <Button size="sm" onClick={handleOpenCreate}>
-            <Plus className="size-4" />
-            Ajouter un sponsor
-          </Button>
+          {isAdmin && (
+            <Button size="sm" onClick={handleOpenCreate}>
+              <Plus className="size-4" />
+              Ajouter un sponsor
+            </Button>
+          )}
         </CardHeader>
 
         <CardContent>
@@ -130,10 +137,10 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
                 >
                   <div className="flex items-center gap-3 overflow-hidden">
                     {ts.sponsors.logo_url ? (
-                      <img 
-                        src={ts.sponsors.logo_url} 
-                        alt={ts.sponsors.name} 
-                        className="size-10 object-contain rounded-lg bg-white/5 p-1 shrink-0" 
+                      <img
+                        src={ts.sponsors.logo_url}
+                        alt={ts.sponsors.name}
+                        className="size-10 object-contain rounded-lg bg-white/5 p-1 shrink-0"
                       />
                     ) : (
                       <Building className="size-6 text-amber-400 shrink-0" />
@@ -160,8 +167,8 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
                 {selectedSponsor ? "Modifier le sponsor" : "Ajouter un sponsor"}
               </DialogTitle>
               <DialogDescription className="text-xs">
-                {selectedSponsor 
-                  ? "Mettez à jour les informations ou retirez ce sponsor du tournoi." 
+                {selectedSponsor
+                  ? "Mettez à jour les informations ou retirez ce sponsor du tournoi."
                   : "Renseignez les informations de la marque ou du partenaire pour ce tournoi."}
               </DialogDescription>
             </DialogHeader>
@@ -227,9 +234,9 @@ export function TournamentSponsorsTab({ tournament }: { tournament: any }) {
 
             <DialogFooter className="flex justify-between items-center sm:justify-between">
               {selectedSponsor ? (
-                <Button 
-                  type="button" 
-                  variant="destructive" 
+                <Button
+                  type="button"
+                  variant="destructive"
                   size="sm"
                   onClick={handleDelete}
                   disabled={isLoading}
