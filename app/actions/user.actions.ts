@@ -21,6 +21,29 @@ export async function getUserProfile() {
     }
 }
 
+export async function searchUserFromId(id: string) {
+    const supabase = await createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return { success: false, message: "Non authentifié." };
+
+    try {
+        const user = await prisma.users.findFirst({
+            where: {
+                id
+            }
+        })
+
+        return {
+            success: true,
+            message: "Utilisateur affiché avec succès.",
+            user
+        };
+    } catch (error) {
+        console.error("Erreur searchUserFromId:", error);
+        return { success: false, message: "Impossible d'afficher l'utilisateur." };
+    }
+}
+
 interface UpdateProfileInput {
     display_name: string
 }

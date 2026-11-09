@@ -35,6 +35,7 @@ const navigation = [
     label: "Espace Général",
     items: [
       { title: "Dashboard", url: "/dashboard", icon: <Home className="size-4 text-brand-cyan" /> },
+      { title: "Messagerie", url: "/dashboard/messages", icon: <MessageSquare className="size-4 text-cyan-400" /> },
       { title: "Match Chats", url: "/dashboard/chats", icon: <MessageSquare className="size-4" /> },
     ],
   },

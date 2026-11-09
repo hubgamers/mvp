@@ -10,5 +10,5 @@ Tester toutes les pages, les suivantes ont été testées :
 - Listing de matchs dans dashboard tournament
 - Generer les matchs TBD vs TBD sur bracket
 - Propagation de qualifies en bracket
-
-- [A FAIRE] Gerer et tester pour les squads
+- Tester pour les squads
+- Messagerie entre utilisateur

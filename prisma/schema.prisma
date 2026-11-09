@@ -145,6 +145,32 @@ model match_messages {
   users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 }
 
+model direct_conversations {
+  id         String            @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user1_id   String            @db.Uuid
+  user2_id   String            @db.Uuid
+  created_at DateTime          @default(now()) @db.Timestamp(6)
+  updated_at DateTime          @updatedAt @db.Timestamp(6)
+  user1      users             @relation("direct_conversations_user1", fields: [user1_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  user2      users             @relation("direct_conversations_user2", fields: [user2_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  messages   direct_messages[]
+
+  @@unique([user1_id, user2_id])
+  @@index([user2_id, updated_at])
+}
+
+model direct_messages {
+  id              String               @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  conversation_id String               @db.Uuid
+  sender_id       String               @db.Uuid
+  message         String
+  created_at      DateTime             @default(now()) @db.Timestamp(6)
+  conversation    direct_conversations @relation(fields: [conversation_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  sender          users                @relation(fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([conversation_id, created_at])
+}
+
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model match_map_vetos {
@@ -613,6 +639,9 @@ model users {
   match_arbiters                                          match_arbiters[]
   match_disputes_match_disputes_handled_by_user_idTousers match_disputes[]         @relation("match_disputes_handled_by_user_idTousers")
   match_disputes_match_disputes_opened_by_user_idTousers  match_disputes[]         @relation("match_disputes_opened_by_user_idTousers")
+  direct_conversations_as_user1                           direct_conversations[]   @relation("direct_conversations_user1")
+  direct_conversations_as_user2                           direct_conversations[]   @relation("direct_conversations_user2")
+  direct_messages                                         direct_messages[]
   match_media                                             match_media[]
   match_messages                                          match_messages[]
   notifications                                           notifications[]

@@ -126,7 +126,9 @@ export default async function SquadDetailPage({ params }: SquadDetailPageProps) 
                   <div key={member.user_id} className="py-3.5 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
                       <div className="size-9 rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 flex items-center justify-center font-bold text-xs">
-                        {member.users.display_name?.slice(0, 2).toUpperCase()}
+                        <Link href={`/dashboard/users/${member.user_id}`}>
+                          {member.users.display_name?.slice(0, 2).toUpperCase()}
+                        </Link>
                       </div>
                       <div>
                         <div className="text-sm font-bold text-white flex items-center gap-2">
