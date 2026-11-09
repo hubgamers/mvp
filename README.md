@@ -18,6 +18,10 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Stripe subscriptions
+
+Apply `supabase/migrations/20261109173100_stripe_subscriptions.sql` to the database and set `STRIPE_WEBHOOK_SECRET` alongside the Stripe API and price environment variables. Configure a Stripe webhook to call `/api/webhooks/stripe` for `checkout.session.completed`, `checkout.session.expired`, and `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

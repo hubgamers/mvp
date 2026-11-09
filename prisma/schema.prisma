@@ -627,6 +627,39 @@ model user_game_accounts {
   @@unique([user_id, game], map: "user_game_accounts_user_id_game_idx")
 }
 
+model stripe_subscriptions {
+  id                         String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  user_id                    String    @db.Uuid
+  stripe_subscription_id     String?   @unique @db.VarChar
+  stripe_checkout_session_id String?   @unique @db.VarChar
+  stripe_customer_id         String?   @db.VarChar
+  stripe_price_id            String?   @db.VarChar
+  plan_id                    String    @db.VarChar
+  status                     String    @db.VarChar
+  currency                   String?   @db.VarChar
+  amount                     Int?
+  interval                   String?   @db.VarChar
+  interval_count             Int?
+  current_period_start       DateTime? @db.Timestamp(6)
+  current_period_end         DateTime? @db.Timestamp(6)
+  trial_start                DateTime? @db.Timestamp(6)
+  trial_end                  DateTime? @db.Timestamp(6)
+  canceled_at                DateTime? @db.Timestamp(6)
+  cancel_at_period_end       Boolean   @default(false)
+  checkout_expires_at        DateTime? @db.Timestamp(6)
+  is_current                 Boolean   @default(true)
+  stripe_event_created       Int?
+  stripe_metadata            Json      @default("{}")
+  checkout_metadata          Json      @default("{}")
+  created_at                 DateTime  @default(now()) @db.Timestamp(6)
+  updated_at                 DateTime  @updatedAt @db.Timestamp(6)
+  users                      users     @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@index([user_id, is_current])
+  @@index([user_id, plan_id, current_period_end])
+  @@unique([user_id, plan_id], where: raw("is_current = true"), map: "stripe_subscriptions_one_current_plan_per_user")
+}
+
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
 model users {
   id                                                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
@@ -650,6 +683,7 @@ model users {
   studios                                                 studios[]
   tournaments_members                                     tournaments_members[]
   user_game_accounts                                      user_game_accounts[]
+  stripe_subscriptions                                    stripe_subscriptions[]
   match_dispute_messages                                  match_dispute_messages[]
 }
 
