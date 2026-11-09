@@ -59,6 +59,7 @@ export async function acceptInvitation(code: string, rosterIdForTournament?: str
           update: {},
         })
       } else if (invitation.target_type_code === "SQUAD") {
+        console.log('userId', user.id)
         await tx.squads_members.upsert({
           where: {
             user_id_squad_id: {

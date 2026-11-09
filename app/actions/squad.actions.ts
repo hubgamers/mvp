@@ -136,11 +136,11 @@ export async function joinSquad(id: string) {
                 create: {
                     user_id: user.id,
                     squad_id: id,
-                    role_code: 'PLAYER',
+                    role_code: 'MEMBER',
                     status: SquadMemberStatus.INVITE
                 },
                 update: {
-                    role_code: 'PLAYER',
+                    role_code: 'MEMBER',
                     status: SquadMemberStatus.INVITE
                 }
             }),
@@ -151,6 +151,7 @@ export async function joinSquad(id: string) {
                 create: {
                     code: invitationCode,
                     inviter_id: user.id,
+                    email: user.email,
                     target_type_code: 'SQUAD',
                     target_id: id,
                     status: 'WAIT'
