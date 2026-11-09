@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useSyncExternalStore } from "react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import {
@@ -33,6 +33,16 @@ interface NewTournamentFormProps {
   gamesList: Game[]
 }
 
+const subscribeToDateTime = () => () => {}
+const getCurrentDateTime = () => new Date().toISOString().slice(0, 16)
+const getServerDateTime = () => ""
+
+function offsetDateTime(value: string, offsetMs: number) {
+  return value
+    ? new Date(new Date(value).getTime() + offsetMs).toISOString().slice(0, 16)
+    : ""
+}
+
 export default function NewTournamentForm({ gamesList }: NewTournamentFormProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -49,12 +59,19 @@ export default function NewTournamentForm({ gamesList }: NewTournamentFormProps)
   const [checkinEnabled, setCheckinEnabled] = useState(true)
   const [statusCode] = useState("REGISTRATION")
 
-  // Dates par défaut
-  const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
-  const nextWeek = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString().slice(0, 16)
-  const [regStart, setRegStart] = useState(new Date().toISOString().slice(0, 16))
-  const [regEnd, setRegEnd] = useState(tomorrow)
-  const [startAt, setStartAt] = useState(nextWeek)
+  const currentDateTime = useSyncExternalStore(
+    subscribeToDateTime,
+    getCurrentDateTime,
+    getServerDateTime
+  )
+  const [dateOverrides, setDateOverrides] = useState<{
+    regStart?: string
+    regEnd?: string
+    startAt?: string
+  }>({})
+  const regStart = dateOverrides.regStart ?? currentDateTime
+  const regEnd = dateOverrides.regEnd ?? offsetDateTime(currentDateTime, 24 * 60 * 60 * 1000)
+  const startAt = dateOverrides.startAt ?? offsetDateTime(currentDateTime, 7 * 24 * 60 * 60 * 1000)
 
   const handleNameChange = (val: string) => {
     setName(val)
@@ -97,7 +114,11 @@ export default function NewTournamentForm({ gamesList }: NewTournamentFormProps)
       })
 
       if (res.success) {
-        router.push(`/dashboard/tournaments/${(res as any).tournament?.id || ""}`)
+        if (!res.tournament) {
+          setError("Le tournoi a été sauvegardé, mais son identifiant est introuvable.")
+          return
+        }
+        router.push(`/dashboard/tournaments/${res.tournament.id}`)
         router.refresh()
       } else {
         setError(res.message)
@@ -318,7 +339,7 @@ export default function NewTournamentForm({ gamesList }: NewTournamentFormProps)
                   id="regStart"
                   type="datetime-local"
                   value={regStart}
-                  onChange={(e) => setRegStart(e.target.value)}
+                  onChange={(e) => setDateOverrides((dates) => ({ ...dates, regStart: e.target.value }))}
                   className="bg-black/40 border-white/10 text-xs"
                 />
               </div>
@@ -329,7 +350,7 @@ export default function NewTournamentForm({ gamesList }: NewTournamentFormProps)
                   id="regEnd"
                   type="datetime-local"
                   value={regEnd}
-                  onChange={(e) => setRegEnd(e.target.value)}
+                  onChange={(e) => setDateOverrides((dates) => ({ ...dates, regEnd: e.target.value }))}
                   className="bg-black/40 border-white/10 text-xs"
                 />
               </div>
@@ -340,7 +361,7 @@ export default function NewTournamentForm({ gamesList }: NewTournamentFormProps)
                   id="startAt"
                   type="datetime-local"
                   value={startAt}
-                  onChange={(e) => setStartAt(e.target.value)}
+                  onChange={(e) => setDateOverrides((dates) => ({ ...dates, startAt: e.target.value }))}
                   className="bg-black/40 border-white/10 text-xs"
                 />
               </div>

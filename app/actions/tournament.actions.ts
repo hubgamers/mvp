@@ -2,27 +2,25 @@
 
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
-import { tournaments } from "@prisma/client"
 import { getPlanEntitlements, getTournamentEntitlements, planLimitMessage } from "@/lib/plans"
 
 interface SaveTournamentInput {
     name: string
     slug: string
-    game: string
+    game_id: string
     status_code: string
-    format: string
-    platform: string
-    cashprize: number
-    prix_entree: string
-    nb_roster: number
-    checkin_enabled: boolean
-    checkin_start_at: Date
-    checkin_end_at: Date
-    start_at: Date
-    end_at: Date
-    registration_start_at: Date
-    registration_end_at: Date
-    deleted: boolean
+    format?: string
+    platform?: string
+    cashprize?: number
+    prix_entree?: string
+    nb_rosters?: number
+    checkin_enabled?: boolean
+    checkin_start_at?: Date
+    checkin_end_at?: Date
+    start_at?: Date
+    end_at?: Date
+    registration_start_at?: Date
+    registration_end_at?: Date
 }
 
 // Add et update
@@ -41,7 +39,7 @@ export async function saveTournament(data: SaveTournamentInput) {
         }
 
         const entitlements = await getPlanEntitlements(user.id, "organizer");
-        if (data.nb_roster > entitlements.teamsPerTournament) {
+        if ((data.nb_rosters ?? 0) > entitlements.teamsPerTournament) {
             return {
                 success: false,
                 message: planLimitMessage("Équipes par tournoi", entitlements.teamsPerTournament, "organizer"),
@@ -206,7 +204,7 @@ export async function getTournaments(myTournaments: boolean, filters?: GetTourna
         if (filters?.query) {
             where.OR = [
                 { name: { contains: filters.query, mode: "insensitive" } },
-                { game: { contains: filters.query, mode: "insensitive" } },
+                { game: { is: { name: { contains: filters.query, mode: "insensitive" } } } },
             ];
         }
 
@@ -215,7 +213,9 @@ export async function getTournaments(myTournaments: boolean, filters?: GetTourna
         }
 
         if (filters?.gameFilter) {
-            where.game = { equals: filters.gameFilter, mode: "insensitive" };
+            where.game = {
+                is: { name: { equals: filters.gameFilter, mode: "insensitive" } },
+            };
         }
 
         if (myTournaments && user) {
@@ -231,6 +231,7 @@ export async function getTournaments(myTournaments: boolean, filters?: GetTourna
             orderBy: { start_at: "desc" },
             include: {
                 tournament_statuses: true,
+                game: true,
                 _count: {
                     select: {
                         tournaments_registrations: true,
@@ -278,6 +279,7 @@ export async function getTournamentDetail(id: string) {
         let tournamentData = await prisma.tournaments.findUnique({
             where: { id },
             include: {
+                game: true,
                 tournament_statuses: true,
                 tournaments_members: {
                     include: {
@@ -328,6 +330,14 @@ export async function getTournamentDetail(id: string) {
                 },
             },
         })
+
+        if (!tournamentData) {
+            return {
+                success: false,
+                message: "Tournoi introuvable.",
+                tournament: null,
+            }
+        }
 
         // 2. Récupérer les invitations en attente pour ce tournoi
         const invitations = await prisma.invitations.findMany({

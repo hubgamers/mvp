@@ -161,7 +161,14 @@ export function MatchChatClient({ matches, currentUser }: MatchChatClientProps) 
 
         {/* Message feed */}
         <div className="flex-1 p-4 overflow-y-auto space-y-3">
-          {activeMessages.map((msg) => {
+          {activeMessages.map((msg: {
+            id: string
+            senderId: string
+            role: string
+            text: string
+            senderName: string
+            timestamp: string
+          }) => {
             const isMe = msg.senderId === currentUser.id
             const isSystem = msg.role === "system"
             const isArbiter = msg.role === "arbiter"

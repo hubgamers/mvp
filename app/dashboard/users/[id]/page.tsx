@@ -31,7 +31,9 @@ export default async function UserProfilePage({
                                 {profileUser.display_name}
                             </h1>
                             <p className="text-xs text-muted-foreground">
-                                Membre depuis le {new Date(profileUser.created_at).toLocaleDateString("fr-FR")}
+                                Membre depuis le {profileUser.created_at
+                                    ? new Date(profileUser.created_at).toLocaleDateString("fr-FR")
+                                    : "une date inconnue"}
                             </p>
                         </div>
                     </div>

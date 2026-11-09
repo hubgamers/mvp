@@ -3,6 +3,7 @@
 import Link from "next/link"
 import { Gamepad2, ShieldCheck, Trophy, Tv } from "lucide-react"
 import { LoginForm } from "@/components/auth/login-form"
+import { CurrentYear } from "@/components/current-year"
 import { useSearchParams } from "next/navigation"
 import { useEffect, Suspense } from "react"
 import { toast } from "sonner"
@@ -49,7 +50,7 @@ function LoginContent() {
         </div>
 
         <div className="text-center sm:text-left text-xs text-muted-foreground">
-          © {new Date().getFullYear()} HubGamers. Plateforme SaaS esport sécurisée.
+          © <CurrentYear /> HubGamers. Plateforme SaaS esport sécurisée.
         </div>
       </div>
 

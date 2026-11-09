@@ -1,9 +1,10 @@
 
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { CurrentYear } from "@/components/current-year";
 import {
   ArrowLeft,
   ArrowRight,
@@ -165,6 +166,14 @@ const formatPrice = (price: number) =>
   }).format(price);
 
 export default function CheckoutPage() {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#080b12]" />}>
+      <CheckoutContent />
+    </Suspense>
+  );
+}
+
+function CheckoutContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
@@ -614,7 +623,7 @@ export default function CheckoutPage() {
         </div>
 
         <footer className="mt-12 border-t border-white/[0.07] pt-6 text-center text-xs text-slate-600">
-          © {new Date().getFullYear()} HubGamers. Tous droits réservés.
+          © <CurrentYear /> HubGamers. Tous droits réservés.
         </footer>
       </div>
     </main>

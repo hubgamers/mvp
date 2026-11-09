@@ -36,9 +36,10 @@ export function TournamentStaffTab({
 
   async function handleInvite(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault()
+    const form = event.currentTarget
     setIsLoading(true)
 
-    const formData = new FormData(event.currentTarget)
+    const formData = new FormData(form)
     const email = formData.get("email")?.toString() || ""
     const role_code = formData.get("role_code")?.toString() || "admin"
 
@@ -56,7 +57,7 @@ export function TournamentStaffTab({
 
       if (res.success) {
         setIsOpen(false)
-          (event.target as HTMLFormElement).reset()
+        form.reset()
       } else {
         alert(res.message)
       }
@@ -71,7 +72,10 @@ export function TournamentStaffTab({
     if (!confirm("Voulez-vous vraiment retirer ce membre de l'équipe ?")) return
 
     try {
-      await removeTournamentMember(tournament.id, userId)
+      await removeTournamentMember({
+        tournament_id: tournament.id,
+        user_id: userId,
+      })
     } catch (error) {
       console.error(error)
     }
@@ -84,7 +88,9 @@ export function TournamentStaffTab({
   )
 
   // Vérifier si l'utilisateur est membre du staff
-  const userMembership = tournament.tournaments_members.find((m) => m.user_id === currentUserId)
+  const userMembership = tournament.tournaments_members.find(
+    (m: { user_id: string; role_code: string }) => m.user_id === currentUserId
+  )
   const isStaff = !!userMembership
   const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
 
@@ -102,11 +108,9 @@ export function TournamentStaffTab({
           {/* Bouton pour ouvrir la modale d'invitation */}
           <Dialog open={isOpen} onOpenChange={setIsOpen}>
             {isAdmin && (
-              <DialogTrigger asChild>
-                <Button size="sm">
+              <DialogTrigger render={<Button size="sm" />}>
                   <UserPlus className="size-4" />
                   Inviter un membre
-                </Button>
               </DialogTrigger>
             )}
             <DialogContent className="sm:max-w-[425px] border-white/10 bg-card text-card-foreground">

@@ -74,18 +74,11 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
     notFound()
   }
 
-  function serializeTournament(tournament: any) {
-    if (!tournament) return tournament;
-
-    return {
-      ...tournament,
-      cashprize: tournament.cashprize ? Number(tournament.cashprize) : null,
-      prix_entree: tournament.prix_entree ? Number(tournament.prix_entree) : null,
-      // Si tu as d'autres champs Decimal dans les sous-objets, tu peux les ajuster ici si nécessaire
-    };
+  const tournament = {
+    ...rawTournament,
+    cashprize: rawTournament.cashprize ? Number(rawTournament.cashprize) : null,
+    prix_entree: rawTournament.prix_entree ? Number(rawTournament.prix_entree) : null,
   }
-
-  const tournament = serializeTournament(rawTournament);
 
   // Dans page.tsx
   const rawInvitations = await getInvitationsFromTournamentId(tournament.id)
@@ -105,7 +98,9 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
 
 
   // Vérifier si l'utilisateur est membre du staff
-  const userMembership = tournament.tournaments_members.find((m) => m.user_id === user.id)
+  const userMembership = tournament.tournaments_members.find(
+    (m: { user_id: string; role_code: string }) => m.user_id === user.id
+  )
   const isStaff = !!userMembership
   const isAdmin = userMembership?.role_code === "ADMIN"
 
@@ -126,7 +121,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
               </Badge>
               {tournament.game && (
                 <span className="text-xs text-cyan-400 font-bold uppercase tracking-wider">
-                  {tournament.game}
+                  {tournament.game.name}
                 </span>
               )}
             </div>
@@ -263,7 +258,7 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
           currentUserId={user.id}
           canInviteCasters={entitlements.sponsorsAndCasters}
           canInviteReferees={
-            tournament.tournaments_members.filter((member) => member.role_code === "ARBITER").length +
+            tournament.tournaments_members.filter((member: { role_code: string }) => member.role_code === "ARBITER").length +
               pendingRefereeInvitations <
             entitlements.referees
           }

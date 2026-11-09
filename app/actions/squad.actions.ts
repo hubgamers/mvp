@@ -130,6 +130,7 @@ export async function joinSquad(id: string) {
     const supabase = await createClient();
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return { success: false, message: "Non authentifié." };
+    if (!user.email) return { success: false, message: "Votre compte ne possède pas d'adresse e-mail." };
 
     const user_id_squad_id = {
         user_id: user.id,

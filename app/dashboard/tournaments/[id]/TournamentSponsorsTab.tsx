@@ -99,7 +99,9 @@ export function TournamentSponsorsTab({ tournament, currentUserId }: { tournamen
   }
 
   // Vérifier si l'utilisateur est membre du staff
-  const userMembership = tournament.tournaments_members.find((m) => m.user_id === currentUserId)
+  const userMembership = tournament.tournaments_members.find(
+    (m: { user_id: string; role_code: string }) => m.user_id === currentUserId
+  )
   const isStaff = !!userMembership
   const isAdmin = userMembership?.role_code === "ADMIN" // ou "admin" selon ta base de données
 

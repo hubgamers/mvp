@@ -167,9 +167,9 @@ export async function acceptInvitation(code: string, rosterIdForTournament?: str
 
         await tx.tournaments_registrations.upsert({
           where: {
-            tournament_id_roster_id: {
-              tournament_id: invitation.target_id,
+            roster_id_tournament_id: {
               roster_id: rosterIdForTournament,
+              tournament_id: invitation.target_id,
             },
           },
           create: {
@@ -252,6 +252,7 @@ export async function createInvitation(data: CreateInvitationInput) {
   const supabase = await createClient()
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return { success: false, message: "Non authentifié." }
+  if (!user.email) return { success: false, message: "Votre compte ne possède pas d'adresse e-mail." }
 
   try {
     // Génération d'un code unique lisible
@@ -264,6 +265,7 @@ export async function createInvitation(data: CreateInvitationInput) {
       data: {
         code,
         inviter_id: user.id,
+        email: user.email,
         target_type_code: data.target_type_code,
         target_id: data.target_id,
         status: "WAIT",

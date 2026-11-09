@@ -1,3 +1,4 @@
+import { Suspense } from "react"
 import Link from "next/link"
 import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
@@ -24,7 +25,15 @@ export const metadata = {
   description: "Gérez vos escouades, sessions de jeu et recherches de coéquipiers.",
 }
 
-export default async function DashboardSquadsPage() {
+export default function DashboardSquadsPage() {
+  return (
+    <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Chargement des escouades…</div>}>
+      <DashboardSquadsContent />
+    </Suspense>
+  )
+}
+
+async function DashboardSquadsContent() {
   const supabase = await createClient()
   const {
     data: { user },

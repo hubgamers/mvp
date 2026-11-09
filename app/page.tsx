@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CurrentYear } from "@/components/current-year";
 
 export default function Home() {
   return (
@@ -397,7 +398,7 @@ export default function Home() {
             <span className="font-bold text-white text-sm">
               Hub<span className="text-brand-cyan">Gamers</span>
             </span>
-            <span>· Plateforme Esport SaaS © {new Date().getFullYear()}</span>
+            <span>· Plateforme Esport SaaS © <CurrentYear /></span>
           </div>
 
           <div className="flex items-center gap-6">

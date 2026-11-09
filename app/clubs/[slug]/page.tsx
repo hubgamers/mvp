@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { prisma } from "@/lib/prisma"
@@ -38,7 +39,15 @@ export async function generateMetadata({ params }: ClubPublicPageProps) {
   }
 }
 
-export default async function ClubPublicPage({ params }: ClubPublicPageProps) {
+export default function ClubPublicPage(props: ClubPublicPageProps) {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#07090e]" />}>
+      <ClubPublicPageContent {...props} />
+    </Suspense>
+  )
+}
+
+async function ClubPublicPageContent({ params }: ClubPublicPageProps) {
   const { slug } = await params
   const supabase = await createClient()
   const {

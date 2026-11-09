@@ -127,7 +127,9 @@ export default async function MatchDetailPage({ params }: MatchPageProps) {
 
   // Droit de gestion global (Scores, Tchat, Litiges) :
   // Autorisé pour : l'Arbitre/Admin du tournoi, l'Arbitre du match, ou les Capitaines / Joueurs des rosters concernés
-  const canManageScore = isArbiterOrAdmin || isRoster1Captain || isRoster2Captain || isRoster1Member || isRoster2Member
+  const canManageScore = !!(
+    isArbiterOrAdmin || isRoster1Captain || isRoster2Captain || isRoster1Member || isRoster2Member
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-6xl mx-auto w-full">

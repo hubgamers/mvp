@@ -1,4 +1,5 @@
 import Link from "next/link"
+import { Suspense } from "react"
 import { notFound } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { prisma } from "@/lib/prisma"
@@ -34,18 +35,26 @@ export async function generateMetadata({ params }: TournamentPublicPageProps) {
   const { slug } = await params
   const tournament = await prisma.tournaments.findUnique({
     where: { slug },
-    select: { name: true, game: true },
+    select: { name: true, game: { select: { name: true } } },
   })
 
   if (!tournament) return { title: "Tournoi introuvable · HubGamers" }
 
   return {
-    title: `${tournament.name} (${tournament.game || "Esport"}) · HubGamers`,
+    title: `${tournament.name} (${tournament.game?.name || "Esport"}) · HubGamers`,
     description: `Rejoignez le tournoi officiel ${tournament.name} sur HubGamers.`,
   }
 }
 
-export default async function TournamentPublicPage({ params }: TournamentPublicPageProps) {
+export default function TournamentPublicPage(props: TournamentPublicPageProps) {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#07090e]" />}>
+      <TournamentPublicPageContent {...props} />
+    </Suspense>
+  )
+}
+
+async function TournamentPublicPageContent({ params }: TournamentPublicPageProps) {
   const { slug } = await params
   const supabase = await createClient()
   const {
@@ -55,6 +64,7 @@ export default async function TournamentPublicPage({ params }: TournamentPublicP
   const tournament = await prisma.tournaments.findUnique({
     where: { slug },
     include: {
+      game: true,
       tournament_statuses: true,
       tournaments_registrations: {
         where: { status_code: "CONFIRMED" },
@@ -172,7 +182,7 @@ export default async function TournamentPublicPage({ params }: TournamentPublicP
                 {tournament.game && (
                   <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-xs font-semibold">
                     <Gamepad2 className="size-3.5 mr-1" />
-                    {tournament.game}
+                    {tournament.game.name}
                   </Badge>
                 )}
                 {tournament.platform && (

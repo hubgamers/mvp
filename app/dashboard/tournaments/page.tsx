@@ -135,7 +135,7 @@ export default async function MyTournamentsPage({ searchParams }: MyTournamentsP
                     {t.game && (
                       <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 text-[11px]">
                         <Gamepad2 className="size-3 mr-1" />
-                        {t.game}
+                        {t.game?.name}
                       </Badge>
                     )}
                   </div>

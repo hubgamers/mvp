@@ -30,7 +30,9 @@ export default function DashboardLayout({
               orientation="vertical"
               className="mr-2 data-vertical:h-4 data-vertical:self-auto bg-white/10"
             />
-            <DashboardBreadcrumbs />
+            <Suspense fallback={<div className="h-4 w-32 animate-pulse rounded bg-muted" />}>
+              <DashboardBreadcrumbs />
+            </Suspense>
           </div>
 
           <div className="flex items-center gap-3">
@@ -63,7 +65,9 @@ export default function DashboardLayout({
         </header>
 
         <main className="flex-1">
-          {children}
+          <Suspense fallback={<div className="p-6 text-sm text-muted-foreground">Chargement du tableau de bord…</div>}>
+            {children}
+          </Suspense>
         </main>
       </SidebarInset>
     </SidebarProvider>

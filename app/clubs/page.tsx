@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
+import { CurrentYear } from "@/components/current-year";
 import {
   Users,
   Shield,
@@ -771,7 +772,7 @@ export default function PublicTeamsPage() {
             <span className="font-bold text-white text-sm">
               Hub<span className="text-cyan-400">Gamers</span>
             </span>
-            <span>· Plateforme Esport SaaS © {new Date().getFullYear()}</span>
+            <span>· Plateforme Esport SaaS © <CurrentYear /></span>
           </div>
 
           <div className="flex items-center gap-6">

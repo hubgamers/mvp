@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { ArrowRight, CircleAlert, ShieldCheck } from "lucide-react";
 import Stripe from "stripe";
 
@@ -43,7 +44,19 @@ async function getCheckoutResult(
   }
 }
 
-export default async function CheckoutSuccessPage({
+export default function CheckoutSuccessPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ session_id?: string | string[] }>;
+}) {
+  return (
+    <Suspense fallback={<main className="min-h-screen bg-[#080b12]" />}>
+      <CheckoutSuccessContent searchParams={searchParams} />
+    </Suspense>
+  );
+}
+
+async function CheckoutSuccessContent({
   searchParams,
 }: {
   searchParams: Promise<{ session_id?: string | string[] }>;
