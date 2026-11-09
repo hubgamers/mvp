@@ -5,6 +5,7 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+  schemas  = ["public", "admin"]
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -13,6 +14,7 @@ model bo_options {
   label              String               @db.VarChar
   is_default         Boolean?             @default(false)
   tournaments_stages tournaments_stages[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -21,6 +23,7 @@ model club_roles {
   label         String          @db.VarChar
   is_default    Boolean?        @default(false)
   clubs_members clubs_members[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -35,6 +38,7 @@ model clubs {
   deleted       Boolean         @default(false)
   clubs_members clubs_members[]
   rosters       rosters[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -50,6 +54,7 @@ model clubs_members {
   users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, club_id])
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -58,6 +63,7 @@ model dispute_statuses {
   label          String           @db.VarChar
   is_default     Boolean?         @default(false)
   match_disputes match_disputes[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -66,6 +72,7 @@ model invitation_target_types {
   label       String        @db.VarChar
   is_default  Boolean?      @default(false)
   invitations invitations[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -84,12 +91,14 @@ model invitations {
   created_at              DateTime?               @default(now()) @db.Timestamp(6)
   users                   users                   @relation(fields: [inviter_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   invitation_target_types invitation_target_types @relation(fields: [target_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 enum InvitationStatus {
   WAIT
   ACCEPTED
   REFUSED
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -102,6 +111,7 @@ model match_arbiters {
   users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([match_id, user_id])
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -121,6 +131,7 @@ model match_disputes {
   users_match_disputes_opened_by_user_idTousers  users?                   @relation("match_disputes_opened_by_user_idTousers", fields: [opened_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   dispute_statuses                               dispute_statuses         @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   match_dispute_messages                         match_dispute_messages[]
+  @@schema("public")
 }
 
 model match_dispute_messages {
@@ -132,6 +143,7 @@ model match_dispute_messages {
 
   match_disputes match_disputes @relation(fields: [dispute_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users          users          @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model match_messages {
@@ -143,6 +155,7 @@ model match_messages {
 
   tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
   users               users               @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model direct_conversations {
@@ -157,6 +170,7 @@ model direct_conversations {
 
   @@unique([user1_id, user2_id])
   @@index([user2_id, updated_at])
+  @@schema("public")
 }
 
 model direct_messages {
@@ -169,6 +183,7 @@ model direct_messages {
   sender          users                @relation(fields: [sender_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
 
   @@index([conversation_id, created_at])
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -184,6 +199,7 @@ model match_map_vetos {
   veto_actions        veto_actions        @relation(fields: [action_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rosters             rosters             @relation(fields: [roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -198,6 +214,7 @@ model match_media {
   tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   match_media_types   match_media_types   @relation(fields: [media_type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   users               users               @relation(fields: [uploaded_by_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -206,6 +223,7 @@ model match_media_types {
   label       String        @db.VarChar
   is_default  Boolean?      @default(false)
   match_media match_media[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -214,6 +232,7 @@ model match_statuses {
   label               String                @db.VarChar
   is_default          Boolean?              @default(false)
   tournaments_matches tournaments_matches[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -227,6 +246,7 @@ model notifications {
   read_at    DateTime? @db.Timestamp(6)
   created_at DateTime? @default(now()) @db.Timestamp(6)
   users      users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -235,6 +255,7 @@ model overlay_types {
   label           String            @db.VarChar
   is_default      Boolean?          @default(false)
   studio_overlays studio_overlays[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -255,6 +276,7 @@ model rosters {
   tournaments_matches_tournaments_matches_winner_roster_idTorosters tournaments_matches[]       @relation("tournaments_matches_winner_roster_idTorosters")
   tournaments_registrations                                         tournaments_registrations[]
   clubs                                                             clubs[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -270,6 +292,7 @@ model rosters_members {
   users      users      @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, roster_id])
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -280,6 +303,7 @@ model sponsors {
   website_url         String?               @db.VarChar
   created_at          DateTime?             @default(now()) @db.Timestamp(6)
   tournament_sponsors tournament_sponsors[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -288,6 +312,7 @@ model squad_member_roles {
   label          String           @db.VarChar
   is_default     Boolean?         @default(false)
   squads_members squads_members[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -296,6 +321,7 @@ model squad_types {
   label      String   @db.VarChar
   is_default Boolean? @default(false)
   squads     squads[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -314,6 +340,7 @@ model squads {
   updated_at     DateTime?        @updatedAt @db.Timestamp(6)
   squad_types    squad_types      @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   squads_members squads_members[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -328,11 +355,13 @@ model squads_members {
   users              users              @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, squad_id])
+  @@schema("public")
 }
 
 enum SquadMemberStatus {
   INVITE
   JOINED
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -347,6 +376,7 @@ model studio_overlays {
   updated_at    DateTime?     @updatedAt @db.Timestamp(6)
   studios       studios       @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   overlay_types overlay_types @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -362,6 +392,7 @@ model studio_scenes_config {
   custom_css      String?
   updated_at      DateTime? @updatedAt @db.Timestamp(6)
   studios         studios   @relation(fields: [studio_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -379,6 +410,7 @@ model studios {
   tournaments_matches  tournaments_matches?   @relation(fields: [active_match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   users                users                  @relation(fields: [owner_user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tournaments          tournaments?           @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -387,6 +419,7 @@ model team_roles {
   label           String            @db.VarChar
   is_default      Boolean?          @default(false)
   rosters_members rosters_members[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -395,6 +428,7 @@ model tournament_member_roles {
   label               String                @db.VarChar
   is_default          Boolean?              @default(false)
   tournaments_members tournaments_members[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -407,6 +441,7 @@ model tournament_prizes {
   percentage    Decimal?    @db.Decimal(5, 2)
   created_at    DateTime?   @default(now()) @db.Timestamp(6)
   tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -415,6 +450,7 @@ model tournament_registration_statuses {
   label                     String                      @db.VarChar
   is_default                Boolean?                    @default(false)
   tournaments_registrations tournaments_registrations[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -427,6 +463,7 @@ model tournament_sponsors {
   tournaments   tournaments @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([tournament_id, sponsor_id])
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -435,6 +472,7 @@ model tournament_stage_statuses {
   label              String               @db.VarChar
   is_default         Boolean?             @default(false)
   tournaments_stages tournaments_stages[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -443,6 +481,7 @@ model tournament_stage_types {
   label              String               @db.VarChar
   is_default         Boolean?             @default(false)
   tournaments_stages tournaments_stages[]
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -451,6 +490,7 @@ model tournament_statuses {
   label       String        @db.VarChar
   is_default  Boolean?      @default(false)
   tournaments tournaments[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -468,6 +508,7 @@ model tournament_streams {
   updated_at          DateTime?            @updatedAt @db.Timestamp(6)
   tournaments_matches tournaments_matches? @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tournaments         tournaments          @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 model games {
@@ -476,6 +517,7 @@ model games {
   created_at  DateTime?     @default(now()) @db.Timestamp(6)
   updated_at  DateTime?     @updatedAt @db.Timestamp(6)
   tournaments tournaments[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -509,6 +551,7 @@ model tournaments {
   tournaments_members       tournaments_members[]
   tournaments_registrations tournaments_registrations[]
   tournaments_stages        tournaments_stages[]
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -525,6 +568,7 @@ model tournaments_match_games {
   updated_at          DateTime?           @updatedAt @db.Timestamp(6)
   tournaments_matches tournaments_matches @relation(fields: [match_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   rosters             rosters?            @relation(fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -558,6 +602,7 @@ model tournaments_matches {
   tournaments_stages                                    tournaments_stages        @relation(fields: [stage_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   match_statuses                                        match_statuses            @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   rosters_tournaments_matches_winner_roster_idTorosters rosters?                  @relation("tournaments_matches_winner_roster_idTorosters", fields: [winner_roster_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -572,6 +617,7 @@ model tournaments_members {
   users                   users                   @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([user_id, tournament_id])
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -589,6 +635,7 @@ model tournaments_registrations {
   tournaments                      tournaments                      @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@id([roster_id, tournament_id])
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -609,6 +656,7 @@ model tournaments_stages {
   tournament_stage_statuses tournament_stage_statuses @relation(fields: [status_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
   tournaments               tournaments               @relation(fields: [tournament_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
   tournament_stage_types    tournament_stage_types    @relation(fields: [type_code], references: [code], onDelete: NoAction, onUpdate: NoAction)
+  @@schema("public")
 }
 
 /// This model has constraints using non-default deferring rules and requires additional setup for migrations. Visit https://pris.ly/d/constraint-deferring for more info.
@@ -625,6 +673,7 @@ model user_game_accounts {
   users        users     @relation(fields: [user_id], references: [id], onDelete: NoAction, onUpdate: NoAction)
 
   @@unique([user_id, game], map: "user_game_accounts_user_id_game_idx")
+  @@schema("public")
 }
 
 model stripe_subscriptions {
@@ -658,9 +707,38 @@ model stripe_subscriptions {
   @@index([user_id, is_current])
   @@index([user_id, plan_id, current_period_end])
   @@unique([user_id, plan_id], where: raw("is_current = true"), map: "stripe_subscriptions_one_current_plan_per_user")
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
+model admin_crm_contacts {
+  user_id    String   @id @db.Uuid
+  status     String   @default("new") @db.Text
+  notes      String?  @db.Text
+  created_at DateTime @default(now()) @db.Timestamptz(6)
+  updated_at DateTime @default(now()) @updatedAt @db.Timestamptz(6)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@map("crm_contacts")
+  @@schema("admin")
+}
+
+model admin_tasks {
+  id          String    @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
+  title       String    @db.Text
+  description String?   @db.Text
+  status      String    @default("todo") @db.Text
+  priority    String    @default("medium") @db.Text
+  due_date    DateTime? @db.Date
+  created_at  DateTime  @default(now()) @db.Timestamptz(6)
+  updated_at  DateTime  @default(now()) @updatedAt @db.Timestamptz(6)
+
+  @@index([status, due_date], map: "admin_tasks_status_due_date_idx")
+  @@index([created_at(sort: Desc)], map: "admin_tasks_created_at_idx")
+  @@map("tasks")
+  @@schema("admin")
+}
+
 model users {
   id                                                      String                   @id @default(dbgenerated("gen_random_uuid()")) @db.Uuid
   email                                                   String                   @unique @db.VarChar
@@ -685,6 +763,8 @@ model users {
   user_game_accounts                                      user_game_accounts[]
   stripe_subscriptions                                    stripe_subscriptions[]
   match_dispute_messages                                  match_dispute_messages[]
+  admin_crm_contacts                                      admin_crm_contacts?
+  @@schema("public")
 }
 
 /// This model contains row level security and requires additional setup for migrations. Visit https://pris.ly/d/row-level-security for more info.
@@ -693,4 +773,5 @@ model veto_actions {
   label           String            @db.VarChar
   is_default      Boolean?          @default(false)
   match_map_vetos match_map_vetos[]
+  @@schema("public")
 }

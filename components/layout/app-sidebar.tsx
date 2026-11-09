@@ -13,6 +13,11 @@ import {
   Clapperboard,
   Sparkles,
   UserPlus,
+  ShieldCheck,
+  ContactRound,
+  ListTodo,
+  Database,
+  ChartNoAxesCombined,
 } from "lucide-react"
 
 import { NavMain } from "@/components/layout/nav-main"
@@ -92,6 +97,7 @@ const navigation = [
 ]
 
 interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
+  isAdmin?: boolean
   user: {
     name: string
     email: string
@@ -99,7 +105,7 @@ interface AppSidebarProps extends React.ComponentProps<typeof Sidebar> {
   }
 }
 
-export function AppSidebar({ user, ...props }: AppSidebarProps) {
+export function AppSidebar({ user, isAdmin = false, ...props }: AppSidebarProps) {
   return (
     <Sidebar collapsible="icon" className="border-r border-white/[0.08] bg-[#0a0e17]" {...props}>
       <SidebarHeader className="border-b border-white/[0.08] px-3 py-4">
@@ -136,6 +142,20 @@ export function AppSidebar({ user, ...props }: AppSidebarProps) {
             <NavMain items={group.items} />
           </SidebarGroup>
         ))}
+        {isAdmin && (
+          <SidebarGroup className="p-0 mb-3">
+            <SidebarGroupLabel className="h-7 px-3 text-[10px] font-bold uppercase tracking-[0.2em] text-cyan-300">
+              Espace privé
+            </SidebarGroupLabel>
+            <NavMain items={[
+              { title: "Administration", url: "/dashboard/admin", icon: <ShieldCheck className="size-4 text-cyan-300" /> },
+              { title: "CRM", url: "/dashboard/admin/crm", icon: <ContactRound className="size-4 text-cyan-300" /> },
+              { title: "Tâches", url: "/dashboard/admin/tasks", icon: <ListTodo className="size-4 text-violet-300" /> },
+              { title: "Abonnements", url: "/dashboard/admin/subscriptions", icon: <ChartNoAxesCombined className="size-4 text-emerald-300" /> },
+              { title: "Tables", url: "/dashboard/admin/database", icon: <Database className="size-4 text-amber-300" /> },
+            ]} />
+          </SidebarGroup>
+        )}
       </SidebarContent>
 
       <SidebarFooter className="border-t border-white/[0.08] p-3 bg-black/20">

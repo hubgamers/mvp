@@ -22,6 +22,12 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 Apply `supabase/migrations/20261109173100_stripe_subscriptions.sql` to the database and set `STRIPE_WEBHOOK_SECRET` alongside the Stripe API and price environment variables. Configure a Stripe webhook to call `/api/webhooks/stripe` for `checkout.session.completed`, `checkout.session.expired`, and `customer.subscription.created`, `customer.subscription.updated`, and `customer.subscription.deleted`.
 
+## Espace d'administration
+
+Configurez `ADMIN_EMAIL` avec l'adresse e-mail exacte du compte Supabase autorisé, puis appliquez la migration `supabase/migrations/20261109182500_admin_crm_tasks.sql`. L'espace privé est accessible sous `/dashboard/admin` et comprend le CRM des utilisateurs ainsi qu'un tableau de tâches. Les routes et actions vérifient l'adresse côté serveur.
+
+La console admin comprend aussi un explorateur paginé en lecture seule des tables `public` et `admin`, ainsi qu'un tableau de bord des abonnements synchronisés par Stripe. Les résiliations depuis ce tableau de bord sont programmées en fin de période et peuvent être annulées avant l'échéance. Configurez les webhooks Stripe vers `/api/webhooks/stripe` pour maintenir les statuts à jour.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More

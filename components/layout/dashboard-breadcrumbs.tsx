@@ -24,6 +24,11 @@ const labels: Record<string, string> = {
   invitations: "Invitations",
   billing: "Facturation",
   user: "Mon profil",
+  admin: "Administration",
+  crm: "CRM",
+  tasks: "Tâches",
+  subscriptions: "Abonnements",
+  database: "Tables",
 }
 
 export function DashboardBreadcrumbs() {

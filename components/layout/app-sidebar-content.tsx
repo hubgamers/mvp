@@ -1,6 +1,7 @@
 import { connection } from "next/server"
 import { createClient } from "@/utils/supabase/server"
 import { prisma } from "@/lib/prisma"
+import { isAdminEmail } from "@/lib/admin"
 import { AppSidebar } from "./app-sidebar"
 
 export async function AppSidebarContent() {
@@ -31,5 +32,5 @@ export async function AppSidebarContent() {
     avatar:  "",
   }
 
-  return <AppSidebar user={userData} />
+  return <AppSidebar user={userData} isAdmin={isAdminEmail(user?.email)} />
 }
