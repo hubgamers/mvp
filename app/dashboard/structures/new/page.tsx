@@ -19,7 +19,7 @@ export default function NewStructurePage() {
   const [name, setName] = useState("")
   const [slug, setSlug] = useState("")
   const [description, setDescription] = useState("")
-  const [recruitOpen, setRecruitOpen] = useState(true)
+  const [recruitOpen, setRecruitOpen] = useState(false)
 
   const handleNameChange = (val: string) => {
     setName(val)
@@ -151,7 +151,7 @@ export default function NewStructurePage() {
                 className="size-4 rounded border-white/20 bg-black/40 text-emerald-400 focus:ring-emerald-400"
               />
               <Label htmlFor="recruit" className="text-xs text-slate-300 font-medium cursor-pointer">
-                Recrutement ouvert aux nouveaux joueurs et staffs
+                Recrutement ouvert aux nouveaux joueurs et staffs (Club Plus)
               </Label>
             </div>
           </CardContent>

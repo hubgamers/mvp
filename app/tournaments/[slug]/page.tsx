@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { TournamentRegisterButton } from "./tournament-register-button"
+import { getTournamentEntitlements } from "@/lib/plans"
 
 interface TournamentPublicPageProps {
   params: Promise<{
@@ -97,6 +98,14 @@ export default async function TournamentPublicPage({ params }: TournamentPublicP
   if (!tournament) {
     notFound()
   }
+
+  const entitlements = await getTournamentEntitlements(user?.id ?? "", tournament.id)
+  const registrationLimit = Math.min(
+    entitlements.teamsPerTournament,
+    tournament.nb_rosters && tournament.nb_rosters > 0
+      ? tournament.nb_rosters
+      : entitlements.teamsPerTournament
+  )
 
   // Récupérer les rosters éligibles si l'utilisateur est connecté et capitaine
   let userRosters: any[] = []
@@ -195,7 +204,7 @@ export default async function TournamentPublicPage({ params }: TournamentPublicP
               <div className="flex items-center justify-between text-xs text-slate-300">
                 <span>Équipes confirmées :</span>
                 <span className="font-bold text-white">
-                  {tournament.tournaments_registrations.length} / {tournament.nb_rosters || "Illimité"}
+                  {tournament.tournaments_registrations.length} / {registrationLimit}
                 </span>
               </div>
 
@@ -204,9 +213,7 @@ export default async function TournamentPublicPage({ params }: TournamentPublicP
                 isLoggedIn={!!user}
                 userRosters={userRosters}
                 isFull={
-                  tournament.nb_rosters
-                    ? tournament.tournaments_registrations.length >= tournament.nb_rosters
-                    : false
+                  tournament.tournaments_registrations.length >= registrationLimit
                 }
               />
             </div>

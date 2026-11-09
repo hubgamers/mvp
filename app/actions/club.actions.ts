@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { getClubEntitlements, getPlanEntitlements, planLimitMessage } from "@/lib/plans";
 
 interface SaveClubInput {
     name: string
@@ -18,6 +19,52 @@ export async function saveClub(data: SaveClubInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const existingClub = await prisma.clubs.findUnique({
+            where: { slug: data.slug },
+            include: {
+                clubs_members: {
+                    where: {
+                        user_id: user.id,
+                        role_code: { in: ["ADMIN", "OWNER"] },
+                    },
+                    select: { user_id: true },
+                },
+            },
+        });
+        if (existingClub && existingClub.clubs_members.length === 0) {
+            return { success: false, message: "Cette structure ne vous appartient pas." };
+        }
+
+        if ((!existingClub || existingClub.deleted) && !data.deleted) {
+            const entitlements = await getPlanEntitlements(user.id, "club");
+            const clubCount = await prisma.clubs.count({
+                where: {
+                    deleted: false,
+                    ...(existingClub ? { id: { not: existingClub.id } } : {}),
+                    clubs_members: {
+                        some: {
+                            user_id: user.id,
+                            role_code: { in: ["ADMIN", "OWNER"] },
+                        },
+                    },
+                },
+            });
+            if (clubCount >= entitlements.clubs) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Structures", entitlements.clubs, "club"),
+                };
+            }
+        }
+
+        const entitlements = await getPlanEntitlements(user.id, "club");
+        if (data.recruit_open && !entitlements.recruitment) {
+            return {
+                success: false,
+                message: "Le recrutement est réservé aux offres Club Plus et Pro : /dashboard/billing?category=club",
+            };
+        }
+
         const club = await prisma.$transaction(async (tx) => {
             const saved = await tx.clubs.upsert({
                 where: {
@@ -45,7 +92,7 @@ export async function saveClub(data: SaveClubInput) {
                 create: {
                     user_id: user.id,
                     club_id: saved.id,
-                    role_code: "ADMIN"
+                    role_code: "OWNER"
                 },
                 update: {}
             });
@@ -72,6 +119,23 @@ export async function saveClubMember(data: SaveClubMemberInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const existingMember = await prisma.clubs_members.findUnique({
+            where: { user_id_club_id: data },
+            select: { user_id: true },
+        });
+        if (!existingMember) {
+            const entitlements = await getClubEntitlements(user.id, data.club_id);
+            const memberCount = await prisma.clubs_members.count({
+                where: { club_id: data.club_id },
+            });
+            if (memberCount >= entitlements.clubMembers) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Membres du club", entitlements.clubMembers, "club"),
+                };
+            }
+        }
+
         await prisma.clubs_members.upsert({
             where: {
                 user_id_club_id: data

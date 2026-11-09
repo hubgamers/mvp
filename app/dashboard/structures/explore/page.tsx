@@ -34,6 +34,10 @@ export default async function ExploreStructuresPage({ searchParams }: ExploreStr
         : {}),
     },
     include: {
+      clubs_members: {
+        where: { role_code: { in: ["ADMIN", "OWNER"] } },
+        select: { user_id: true },
+      },
       _count: {
         select: {
           clubs_members: true,
@@ -43,6 +47,35 @@ export default async function ExploreStructuresPage({ searchParams }: ExploreStr
     },
     orderBy: { created_at: "desc" },
   })
+  const ownerIds = clubs
+    .flatMap((club) => club.clubs_members.map((member) => member.user_id))
+    .filter((userId): userId is string => Boolean(userId))
+  const recruitmentSubscriptions = ownerIds.length
+    ? await prisma.stripe_subscriptions.findMany({
+        where: {
+          user_id: { in: ownerIds },
+          is_current: true,
+          status: { in: ["active", "trialing", "past_due"] },
+          plan_id: { startsWith: "club-" },
+        },
+        select: { user_id: true, plan_id: true },
+      })
+    : []
+  const recruitmentOwners = new Set(
+    recruitmentSubscriptions
+      .filter((subscription) =>
+        subscription.plan_id.endsWith("-plus") ||
+        subscription.plan_id.endsWith("-pro")
+      )
+      .map((subscription) => subscription.user_id)
+  )
+  const clubsWithEntitlements = clubs.map((club) => ({
+    ...club,
+    recruitmentOpen: Boolean(
+      club.recruit_open &&
+        club.clubs_members.some((member) => recruitmentOwners.has(member.user_id))
+    ),
+  }))
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -93,7 +126,7 @@ export default async function ExploreStructuresPage({ searchParams }: ExploreStr
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {clubs.map((club) => (
+          {clubsWithEntitlements.map((club) => (
             <Card
               key={club.id}
               className="group border-white/10 bg-card/60 backdrop-blur-sm hover:border-white/20 hover:bg-card/90 transition-all duration-300 flex flex-col justify-between"
@@ -101,7 +134,7 @@ export default async function ExploreStructuresPage({ searchParams }: ExploreStr
               <div>
                 <CardHeader className="p-5 pb-3">
                   <div className="flex items-center justify-between gap-2 mb-2">
-                    {club.recruit_open ? (
+                    {club.recruitmentOpen ? (
                       <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                         Recrutement ouvert
                       </Badge>

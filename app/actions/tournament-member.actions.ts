@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { Resend } from "resend";
 import crypto from "crypto";
+import { getTournamentEntitlements, planLimitMessage } from "@/lib/plans";
 
 const resend = new Resend(process.env.RESEND_API_KEY);
 
@@ -20,6 +21,42 @@ export async function inviteTournamentMember(data: InviteMemberInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const role = data.role_code.toUpperCase();
+        const isArbiter = role === "ARBITER" || role === "REFEREE";
+        const isCaster = role === "CASTER";
+        if (isCaster) {
+            const entitlements = await getTournamentEntitlements(user.id, data.tournamentId);
+            if (!entitlements.sponsorsAndCasters) {
+                return {
+                    success: false,
+                    message: "L'ajout de casters est réservé aux offres Organizer Plus et Pro : /dashboard/billing?category=organizer",
+                };
+            }
+        }
+
+        if (isArbiter) {
+            const entitlements = await getTournamentEntitlements(user.id, data.tournamentId);
+            const [refereeCount, pendingInvitations] = await Promise.all([
+                prisma.tournaments_members.count({
+                    where: { tournament_id: data.tournamentId, role_code: "ARBITER" },
+                }),
+                prisma.invitations.count({
+                    where: {
+                        target_id: data.tournamentId,
+                        target_type_code: "TOURNAMENT_STAFF",
+                        status: "WAIT",
+                        code: { startsWith: "ARBITER-" },
+                    },
+                }),
+            ]);
+            if (refereeCount + pendingInvitations >= entitlements.referees) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Arbitres par tournoi", entitlements.referees, "organizer"),
+                };
+            }
+        }
+
         // 1. Récupérer les infos du tournoi pour l'e-mail
         const tournament = await prisma.tournaments.findUnique({
             where: { id: data.tournamentId },
@@ -27,7 +64,12 @@ export async function inviteTournamentMember(data: InviteMemberInput) {
         });
 
         // 2. Générer un code d'invitation unique
-        const invitationCode = crypto.randomBytes(16).toString("hex");
+        const rolePrefix = role === "ARBITER" || role === "REFEREE"
+            ? "ARBITER-"
+            : role === "CASTER"
+                ? "CASTER-"
+                : "ADMIN-";
+        const invitationCode = `${rolePrefix}${crypto.randomBytes(16).toString("hex")}`;
 
         // 3. Créer l'invitation en base en associant l'e-mail cible et l'admin émetteur (inviter_id)
         await prisma.invitations.create({

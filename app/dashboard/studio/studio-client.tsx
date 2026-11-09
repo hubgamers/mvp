@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Link from "next/link"
 import { Copy, Check, Tv, ExternalLink, Settings2, Palette, Eye, Play, Sparkles } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -12,9 +13,16 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 interface StudioClientProps {
   studio: any
   availableTournaments: any[]
+  overlayLimit: number
+  customizationAllowed: boolean
 }
 
-export function StudioClient({ studio, availableTournaments }: StudioClientProps) {
+export function StudioClient({
+  studio,
+  availableTournaments,
+  overlayLimit,
+  customizationAllowed,
+}: StudioClientProps) {
   const [copiedToken, setCopiedToken] = useState<string | null>(null)
   const config = studio.studio_scenes_config?.[0] || {
     primary_color: "#00F0FF",
@@ -22,8 +30,12 @@ export function StudioClient({ studio, availableTournaments }: StudioClientProps
     font_family: "Inter",
   }
 
-  const [primaryColor, setPrimaryColor] = useState(config.primary_color || "#00F0FF")
-  const [secondaryColor, setSecondaryColor] = useState(config.secondary_color || "#A855F7")
+  const [primaryColor, setPrimaryColor] = useState(
+    customizationAllowed ? config.primary_color || "#00F0FF" : "#00F0FF"
+  )
+  const [secondaryColor, setSecondaryColor] = useState(
+    customizationAllowed ? config.secondary_color || "#A855F7" : "#A855F7"
+  )
 
   const origin = typeof window !== "undefined" ? window.location.origin : "https://hubgamers.pro"
 
@@ -42,7 +54,7 @@ export function StudioClient({ studio, availableTournaments }: StudioClientProps
           <CardHeader>
             <CardTitle className="text-base font-bold text-white flex items-center gap-2">
               <Tv className="size-4 text-cyan-400" />
-              Overlays OBS Disponibles (Browser Sources)
+              Overlays OBS Disponibles · {studio.studio_overlays?.length ?? 0}/{overlayLimit}
             </CardTitle>
             <CardDescription className="text-xs">
               Ajoutez une source "Navigateur" dans OBS Studio avec une résolution de 1920x1080 et collez l'URL.
@@ -110,7 +122,9 @@ export function StudioClient({ studio, availableTournaments }: StudioClientProps
               Charte Graphique du Stream
             </CardTitle>
             <CardDescription className="text-xs">
-              Personnalisez les couleurs appliquées aux bandeaux de score et à l'arbre.
+              {customizationAllowed
+                ? "Personnalisez les couleurs appliquées aux bandeaux de score et à l'arbre."
+                : "Les couleurs prédéfinies sont incluses. La personnalisation est réservée à Studio Plus et Pro."}
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
@@ -121,11 +135,13 @@ export function StudioClient({ studio, availableTournaments }: StudioClientProps
                   type="color"
                   value={primaryColor}
                   onChange={(e) => setPrimaryColor(e.target.value)}
+                  disabled={!customizationAllowed}
                   className="size-9 rounded cursor-pointer bg-transparent border-0"
                 />
                 <Input
                   value={primaryColor}
                   onChange={(e) => setPrimaryColor(e.target.value)}
+                  readOnly={!customizationAllowed}
                   className="bg-black/40 border-white/10 font-mono text-xs"
                 />
               </div>
@@ -138,20 +154,28 @@ export function StudioClient({ studio, availableTournaments }: StudioClientProps
                   type="color"
                   value={secondaryColor}
                   onChange={(e) => setSecondaryColor(e.target.value)}
+                  disabled={!customizationAllowed}
                   className="size-9 rounded cursor-pointer bg-transparent border-0"
                 />
                 <Input
                   value={secondaryColor}
                   onChange={(e) => setSecondaryColor(e.target.value)}
+                  readOnly={!customizationAllowed}
                   className="bg-black/40 border-white/10 font-mono text-xs"
                 />
               </div>
             </div>
 
             <div className="pt-2">
-              <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs">
-                Enregistrer le style OBS
-              </Button>
+              {customizationAllowed ? (
+                <Button className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs">
+                  Enregistrer le style OBS
+                </Button>
+              ) : (
+                <Button asChild className="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs">
+                  <Link href="/dashboard/billing?category=studio">Passer à Studio Plus</Link>
+                </Button>
+              )}
             </div>
           </CardContent>
         </Card>

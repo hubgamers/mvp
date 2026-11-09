@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { tournaments } from "@prisma/client"
+import { getPlanEntitlements, getTournamentEntitlements, planLimitMessage } from "@/lib/plans"
 
 interface SaveTournamentInput {
     name: string
@@ -31,6 +32,40 @@ export async function saveTournament(data: SaveTournamentInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const existingTournament = await prisma.tournaments.findUnique({
+            where: { slug: data.slug },
+            include: { tournaments_members: { where: { user_id: user.id }, select: { user_id: true } } },
+        });
+        if (existingTournament && existingTournament.tournaments_members.length === 0) {
+            return { success: false, message: "Ce tournoi ne vous appartient pas." };
+        }
+
+        const entitlements = await getPlanEntitlements(user.id, "organizer");
+        if (data.nb_roster > entitlements.teamsPerTournament) {
+            return {
+                success: false,
+                message: planLimitMessage("Équipes par tournoi", entitlements.teamsPerTournament, "organizer"),
+            };
+        }
+        const isActive = !["FINISHED", "COMPLETED", "CANCELLED"].includes(data.status_code);
+        if (isActive) {
+            const activeTournamentCount = await prisma.tournaments.count({
+                where: {
+                    status_code: { notIn: ["FINISHED", "COMPLETED", "CANCELLED"] },
+                    ...(existingTournament ? { id: { not: existingTournament.id } } : {}),
+                    tournaments_members: {
+                        some: { user_id: user.id, role_code: "ADMIN" },
+                    },
+                },
+            });
+            if (activeTournamentCount >= entitlements.activeTournaments) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Tournois actifs", entitlements.activeTournaments, "organizer"),
+                };
+            }
+        }
+
         const tournament = await prisma.$transaction(async (tx) => {
             const saved = await tx.tournaments.upsert({
                 where: {
@@ -82,6 +117,32 @@ export async function saveTournamentMember(data: SaveTournamentMember) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const entitlements = await getTournamentEntitlements(user.id, data.tournament_id);
+        if (data.role_code.toUpperCase() === "CASTER" && !entitlements.sponsorsAndCasters) {
+            return {
+                success: false,
+                message: "L'ajout de casters est réservé aux offres Organizer Plus et Pro : /dashboard/billing?category=organizer",
+            };
+        }
+
+        if (data.role_code.toUpperCase() === "ARBITER") {
+            const existingMember = await prisma.tournaments_members.findUnique({
+                where: { user_id_tournament_id: data },
+                select: { user_id: true, role_code: true },
+            });
+            if (existingMember?.role_code !== "ARBITER") {
+                const refereeCount = await prisma.tournaments_members.count({
+                    where: { tournament_id: data.tournament_id, role_code: "ARBITER" },
+                });
+                if (refereeCount >= entitlements.referees) {
+                    return {
+                        success: false,
+                        message: planLimitMessage("Arbitres par tournoi", entitlements.referees, "organizer"),
+                    };
+                }
+            }
+        }
+
         await prisma.tournaments_members.upsert({
             where: {
                 user_id_tournament_id: data

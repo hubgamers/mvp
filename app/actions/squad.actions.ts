@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase/server"
 import { SquadMemberStatus } from "@prisma/client"
 import { revalidatePath } from "next/cache"
 import crypto from "crypto"
+import {
+    checkSquadCreationCapacity,
+    checkSquadJoinCapacity,
+} from "@/lib/plans"
 
 interface SaveSquadInput {
     id?: string
@@ -26,6 +30,8 @@ export async function saveSquad(data: SaveSquadInput) {
 
     try {
         const squadId = data.id || crypto.randomUUID();
+        const capacity = await checkSquadCreationCapacity(user.id, squadId);
+        if (!capacity.allowed) return { success: false, message: capacity.message };
 
         const squad = await prisma.$transaction(async (tx) => {
             const saved = await tx.squads.upsert({
@@ -95,6 +101,11 @@ export async function saveSquadMember(data: SaveSquadMemberInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const capacity = data.role_code.toUpperCase() === "OWNER"
+            ? await checkSquadCreationCapacity(data.user_id, data.squad_id)
+            : await checkSquadJoinCapacity(data.user_id, data.squad_id);
+        if (!capacity.allowed) return { success: false, message: capacity.message };
+
         await prisma.squads_members.upsert({
             where: {
                 user_id_squad_id: data
@@ -128,6 +139,9 @@ export async function joinSquad(id: string) {
     const invitationCode = 'invitation-squad-' + id;
 
     try {
+        const capacity = await checkSquadJoinCapacity(user.id, id);
+        if (!capacity.allowed) return { success: false, message: capacity.message };
+
         await Promise.all([
             prisma.squads_members.upsert({
                 where: {

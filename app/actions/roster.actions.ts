@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { getPlanEntitlements, planLimitMessage } from "@/lib/plans";
 
 interface SaveRosterInput {
     name: string
@@ -18,6 +19,31 @@ export async function saveRoster(data: SaveRosterInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const existingRoster = await prisma.rosters.findUnique({
+            where: { slug: data.slug },
+            include: { rosters_members: { where: { user_id: user.id }, select: { user_id: true } } },
+        });
+        if (existingRoster && existingRoster.rosters_members.length === 0) {
+            return { success: false, message: "Cette line-up ne vous appartient pas." };
+        }
+
+        if ((!existingRoster || existingRoster.deleted) && !data.deleted) {
+            const entitlements = await getPlanEntitlements(user.id, "club");
+            const lineupCount = await prisma.rosters.count({
+                where: {
+                    deleted: false,
+                    ...(existingRoster ? { id: { not: existingRoster.id } } : {}),
+                    rosters_members: { some: { user_id: user.id, role_code: "CAPTAIN" } },
+                },
+            });
+            if (lineupCount >= entitlements.lineups) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Line-ups", entitlements.lineups, "club"),
+                };
+            }
+        }
+
         const roster = await prisma.$transaction(async (tx) => {
             const saved = await tx.rosters.upsert({
                 where: {

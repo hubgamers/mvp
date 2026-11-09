@@ -20,7 +20,17 @@ import { Badge } from "@/components/ui/badge"
 import { inviteTournamentMember } from "@/app/actions/tournament-member.actions"
 import { removeTournamentMember } from "@/app/actions/tournament.actions"
 
-export function TournamentStaffTab({ tournament, currentUserId }: { tournament: any; currentUserId: string }) {
+export function TournamentStaffTab({
+  tournament,
+  currentUserId,
+  canInviteCasters,
+  canInviteReferees,
+}: {
+  tournament: any
+  currentUserId: string
+  canInviteCasters: boolean
+  canInviteReferees: boolean
+}) {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
 
@@ -69,6 +79,9 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
 
   // Filtrer les invitations en attente (statut WAIT) liées à ce tournoi
   const pendingInvitations = tournament.invitations?.filter((inv: any) => inv.status === "WAIT") || []
+  const visibleMembers = tournament.tournaments_members.filter(
+    (member: any) => canInviteCasters || member.role_code !== "CASTER"
+  )
 
   // Vérifier si l'utilisateur est membre du staff
   const userMembership = tournament.tournaments_members.find((m) => m.user_id === currentUserId)
@@ -132,8 +145,12 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
                       className="flex h-9 w-full rounded-md border border-white/10 bg-black/20 px-3 py-1 text-xs text-white shadow-xs outline-none focus-visible:ring-1 focus-visible:ring-ring"
                     >
                       <option value="admin" className="bg-card text-white">Administrateur</option>
-                      <option value="referee" className="bg-card text-white">Arbitre</option>
-                      <option value="caster" className="bg-card text-white">Commentateur (Caster)</option>
+                      {canInviteReferees && (
+                        <option value="referee" className="bg-card text-white">Arbitre</option>
+                      )}
+                      {canInviteCasters && (
+                        <option value="caster" className="bg-card text-white">Commentateur (Caster)</option>
+                      )}
                     </select>
                   </div>
                 </div>
@@ -155,10 +172,10 @@ export function TournamentStaffTab({ tournament, currentUserId }: { tournament: 
           {/* Section 1 : Membres actifs */}
           <div className="divide-y divide-white/5">
             <div className="text-xs font-semibold text-muted-foreground pb-2 uppercase tracking-wider">Membres actifs</div>
-            {tournament.tournaments_members.length === 0 ? (
+            {visibleMembers.length === 0 ? (
               <div className="py-4 text-xs text-muted-foreground">Aucun membre dans l'équipe pour le moment.</div>
             ) : (
-              tournament.tournaments_members.map((member: any) => (
+              visibleMembers.map((member: any) => (
                 <div key={member.user_id} className="py-3 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <div className="size-8 rounded-full bg-white/5 flex items-center justify-center shrink-0">

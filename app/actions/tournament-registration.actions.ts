@@ -2,6 +2,9 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache"
+import crypto from "crypto"
+import { checkTournamentRosterCapacity } from "@/lib/plans"
 
 interface SaveTournamentRegistrationInput {
     roster_id: string;
@@ -20,6 +23,24 @@ export async function saveTournamentRegistration(data: SaveTournamentRegistratio
     const checked_at = data.checked_in ? new Date() : null;
 
     try {
+        const capacity = await checkTournamentRosterCapacity(
+            user.id,
+            data.tournament_id,
+            data.roster_id
+        );
+        if (!capacity.allowed) {
+            const existing = await prisma.tournaments_registrations.findUnique({
+                where: {
+                    roster_id_tournament_id: {
+                        roster_id: data.roster_id,
+                        tournament_id: data.tournament_id,
+                    },
+                },
+                select: { roster_id: true },
+            });
+            if (!existing) return { success: false, message: capacity.message };
+        }
+
         await prisma.tournaments_registrations.upsert({
             where: {
                 roster_id_tournament_id: {
@@ -75,9 +96,6 @@ export async function removeTournamentRegistration(data: RemoveTournamentRegistr
     }
 }
 
-import { revalidatePath } from "next/cache"
-import crypto from "crypto"
-
 export async function addRosterToTournamentDirectly({
   tournamentId,
   rosterId,
@@ -90,6 +108,9 @@ export async function addRosterToTournamentDirectly({
   if (!user) return { success: false, message: "Non authentifié." }
 
   try {
+    const capacity = await checkTournamentRosterCapacity(user.id, tournamentId, rosterId)
+    if (!capacity.allowed) return { success: false, message: capacity.message }
+
     const existing = await prisma.tournaments_registrations.findUnique({
       where: {
         roster_id_tournament_id: {
@@ -132,6 +153,9 @@ export async function inviteRosterToTournament({
   if (!user) return { success: false, message: "Non authentifié." }
 
   try {
+    const capacity = await checkTournamentRosterCapacity(user.id, tournamentId, rosterId)
+    if (!capacity.allowed) return { success: false, message: capacity.message }
+
     // 1. Vérifier si l'équipe existe et récupérer son nom ou vérifier son capitaine si besoin
     const roster = await prisma.rosters.findUnique({
       where: { id: rosterId },

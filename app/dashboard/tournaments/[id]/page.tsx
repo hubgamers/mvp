@@ -41,6 +41,7 @@ import { getInvitationsFromTournamentId } from "@/app/actions/invitation.actions
 import { TournamentStagesTab } from "./TournamentStagesTab"
 import { TournamentRegistrationsTab } from "./TournamentRegistrationsTab"
 import { TournamentMatchesTab } from "./TournamentMatchesTab"
+import { getTournamentEntitlements } from "@/lib/plans"
 
 interface TournamentDetailPageProps {
   params: Promise<{
@@ -91,6 +92,15 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
   // Si ton action renvoie un objet type { invitations: [...] }, extrait-le :
   const invitations = Array.isArray(rawInvitations) ? rawInvitations : (rawInvitations?.invitations || [])
   const availableRosters = await prisma.rosters.findMany({ select: { id: true, name: true } })
+  const entitlements = await getTournamentEntitlements(user.id, tournament.id)
+  const pendingRefereeInvitations = await prisma.invitations.count({
+    where: {
+      target_id: tournament.id,
+      target_type_code: "TOURNAMENT_STAFF",
+      status: "WAIT",
+      code: { startsWith: "ARBITER-" },
+    },
+  })
 
 
 
@@ -206,9 +216,11 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
           <TabsTrigger value="matches" className="text-xs">
             Matchs & Scores
           </TabsTrigger>
-          <TabsTrigger value="sponsors" className="text-xs">
-            Sponsors & Partenaires ({tournament.tournament_sponsors.length})
-          </TabsTrigger>
+          {entitlements.sponsorsAndCasters && (
+            <TabsTrigger value="sponsors" className="text-xs">
+              Sponsors & Partenaires ({tournament.tournament_sponsors.length})
+            </TabsTrigger>
+          )}
           <TabsTrigger value="staff" className="text-xs">
             Staff & Arbitres ({tournament.tournaments_members.length})
           </TabsTrigger>
@@ -241,10 +253,21 @@ export default async function TournamentDetailPage({ params }: TournamentDetailP
         </TabsContent>
 
         {/* 4. Onglet Sponsors */}
-        <TournamentSponsorsTab tournament={tournament} currentUserId={user.id} />
+        {entitlements.sponsorsAndCasters && (
+          <TournamentSponsorsTab tournament={tournament} currentUserId={user.id} />
+        )}
 
         {/* 5. Onglet Staff */}
-        <TournamentStaffTab tournament={tournament} currentUserId={user.id} />
+        <TournamentStaffTab
+          tournament={tournament}
+          currentUserId={user.id}
+          canInviteCasters={entitlements.sponsorsAndCasters}
+          canInviteReferees={
+            tournament.tournaments_members.filter((member) => member.role_code === "ARBITER").length +
+              pendingRefereeInvitations <
+            entitlements.referees
+          }
+        />
       </Tabs>
     </div>
   )

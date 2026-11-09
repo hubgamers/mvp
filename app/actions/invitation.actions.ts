@@ -3,6 +3,13 @@
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import {
+  checkSquadJoinCapacity,
+  checkTournamentRosterCapacity,
+  getClubEntitlements,
+  getTournamentEntitlements,
+  planLimitMessage,
+} from "@/lib/plans"
 
 export async function acceptInvitation(code: string, rosterIdForTournament?: string) {
   const supabase = await createClient()
@@ -18,12 +25,87 @@ export async function acceptInvitation(code: string, rosterIdForTournament?: str
       return { success: false, message: "Invitation introuvable." }
     }
 
+    if (invitation.target_type_code === "CLUB") {
+      const entitlements = await getClubEntitlements(user.id, invitation.target_id)
+      const existingMember = await prisma.clubs_members.findUnique({
+        where: {
+          user_id_club_id: {
+            user_id: user.id,
+            club_id: invitation.target_id,
+          },
+        },
+        select: { user_id: true },
+      })
+      if (!existingMember) {
+        const memberCount = await prisma.clubs_members.count({
+          where: { club_id: invitation.target_id },
+        })
+        if (memberCount >= entitlements.clubMembers) {
+          return {
+            success: false,
+            message: planLimitMessage("Membres du club", entitlements.clubMembers, "club"),
+          }
+        }
+      }
+    }
+
+    if (invitation.target_type_code === "SQUAD") {
+      const capacity = await checkSquadJoinCapacity(user.id, invitation.target_id)
+      if (!capacity.allowed) return { success: false, message: capacity.message }
+    }
+
+    if (invitation.target_type_code === "TOURNAMENT" && rosterIdForTournament) {
+      const capacity = await checkTournamentRosterCapacity(
+        user.id,
+        invitation.target_id,
+        rosterIdForTournament
+      )
+      if (!capacity.allowed) return { success: false, message: capacity.message }
+    }
+
     if (invitation.status !== "WAIT") {
       return { success: false, message: `Cette invitation est déjà ${invitation.status.toLowerCase()}.` }
     }
 
     if (invitation.expires_at && new Date(invitation.expires_at) < new Date()) {
       return { success: false, message: "Cette invitation a expiré." }
+    }
+
+    let tournamentStaffRole = "STAFF"
+    if (invitation.target_type_code === "TOURNAMENT_STAFF") {
+      tournamentStaffRole = invitation.code.startsWith("ARBITER-")
+        ? "ARBITER"
+        : invitation.code.startsWith("CASTER-")
+          ? "CASTER"
+          : "ADMIN"
+      const entitlements = await getTournamentEntitlements(user.id, invitation.target_id)
+      if (tournamentStaffRole === "CASTER" && !entitlements.sponsorsAndCasters) {
+        return {
+          success: false,
+          message: "Les casters sont réservés aux offres Organizer Plus et Pro : /dashboard/billing?category=organizer",
+        }
+      }
+      if (tournamentStaffRole === "ARBITER") {
+        const [refereeCount, pendingInvitations] = await Promise.all([
+          prisma.tournaments_members.count({
+            where: { tournament_id: invitation.target_id, role_code: "ARBITER" },
+          }),
+          prisma.invitations.count({
+            where: {
+              target_id: invitation.target_id,
+              target_type_code: "TOURNAMENT_STAFF",
+              status: "WAIT",
+              code: { startsWith: "ARBITER-", not: invitation.code },
+            },
+          }),
+        ])
+        if (refereeCount + pendingInvitations >= entitlements.referees) {
+          return {
+            success: false,
+            message: planLimitMessage("Arbitres par tournoi", entitlements.referees, "organizer"),
+          }
+        }
+      }
     }
 
     // Effectuer l'adhésion selon le target_type_code
@@ -112,10 +194,10 @@ export async function acceptInvitation(code: string, rosterIdForTournament?: str
           create: {
             user_id: user.id,
             tournament_id: invitation.target_id,
-            role_code: "STAFF", // ou "ARBITER" selon tes rôles
+            role_code: tournamentStaffRole,
           },
           update: {
-            role_code: "STAFF",
+            role_code: tournamentStaffRole,
           },
         })
       }

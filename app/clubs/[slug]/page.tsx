@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { getClubEntitlements } from "@/lib/plans"
 
 interface ClubPublicPageProps {
   params: Promise<{
@@ -74,6 +75,12 @@ export default async function ClubPublicPage({ params }: ClubPublicPageProps) {
     notFound()
   }
 
+  const entitlements = await getClubEntitlements(
+    user?.id ?? club.clubs_members[0]?.user_id ?? "",
+    club.id
+  )
+  const recruitmentOpen = Boolean(club.recruit_open && entitlements.recruitment)
+
   return (
     <div className="min-h-screen bg-[#07090e] text-slate-100">
       {/* Header public */}
@@ -120,7 +127,7 @@ export default async function ClubPublicPage({ params }: ClubPublicPageProps) {
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-400">
                     STRUCTURE OFFICIELLE
                   </span>
-                  {club.recruit_open && (
+                  {recruitmentOpen && (
                     <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]">
                       Recrutements ouverts
                     </Badge>
@@ -136,7 +143,7 @@ export default async function ClubPublicPage({ params }: ClubPublicPageProps) {
             </div>
 
             <div className="flex items-center gap-3">
-              {club.recruit_open && (
+              {recruitmentOpen && (
                 <Button asChild className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg">
                   <Link href="/dashboard/invitations">
                     Postuler / Rejoindre

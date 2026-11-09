@@ -16,6 +16,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card"
+import { getClubEntitlements } from "@/lib/plans"
 
 export const metadata = {
   title: "Mes Structures Esport · HubGamers",
@@ -57,6 +58,15 @@ export default async function DashboardStructuresPage() {
     },
     orderBy: { created_at: "desc" },
   })
+  const clubsWithEntitlements = await Promise.all(
+    userClubs.map(async (club) => ({
+      ...club,
+      recruitmentOpen: Boolean(
+        club.recruit_open &&
+          (await getClubEntitlements(user.id, club.id)).recruitment
+      ),
+    }))
+  )
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -113,7 +123,7 @@ export default async function DashboardStructuresPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {userClubs.map((club) => {
+          {clubsWithEntitlements.map((club) => {
             const myMembership = club.clubs_members.find((m) => m.user_id === user.id)
             const isAdmin = myMembership?.role_code === "ADMIN"
 
@@ -133,7 +143,7 @@ export default async function DashboardStructuresPage() {
                       >
                         {myMembership?.club_roles?.label || myMembership?.role_code || "Membre"}
                       </Badge>
-                      {club.recruit_open && (
+                      {club.recruitmentOpen && (
                         <Badge className="bg-cyan-500/10 text-cyan-400 border-cyan-500/20 text-[10px]">
                           Recrutement ouvert
                         </Badge>

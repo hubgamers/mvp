@@ -3,6 +3,7 @@
 import { prisma } from "@/lib/prisma"
 import { createClient } from "@/lib/supabase/server"
 import { revalidatePath } from "next/cache"
+import { getTournamentEntitlements, planLimitMessage } from "@/lib/plans"
 
 interface SaveTournamentStageInput {
     id?: string | null
@@ -21,6 +22,14 @@ export async function saveTournamentStage(data: SaveTournamentStageInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const entitlements = await getTournamentEntitlements(user.id, data.tournament_id);
+        if (data.nb_team > entitlements.teamsPerTournament) {
+            return {
+                success: false,
+                message: planLimitMessage("Équipes par tournoi", entitlements.teamsPerTournament, "organizer"),
+            };
+        }
+
         if (data.id) {
             // Mise à jour (Update) si un ID existe
             await prisma.tournaments_stages.update({
@@ -34,6 +43,16 @@ export async function saveTournamentStage(data: SaveTournamentStageInput) {
                 }
             });
         } else {
+            const stageCount = await prisma.tournaments_stages.count({
+                where: { tournament_id: data.tournament_id },
+            });
+            if (stageCount >= entitlements.tournamentStages) {
+                return {
+                    success: false,
+                    message: planLimitMessage("Phases par tournoi", entitlements.tournamentStages, "organizer"),
+                };
+            }
+
             // Création (Create) si aucun ID n'est fourni
             await prisma.tournaments_stages.create({
                 data: {

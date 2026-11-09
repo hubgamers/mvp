@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation"
 import { createClient } from "@/utils/supabase/server"
 import { prisma } from "@/lib/prisma"
+import { getPlanEntitlements, getTournamentEntitlements } from "@/lib/plans"
 import { Clapperboard, Tv, Sliders, Shield, Sparkles, Layers } from "lucide-react"
 import { StudioClient } from "./studio-client"
 
@@ -30,7 +31,6 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
   let userStudio = await prisma.studios.findFirst({
     where: {
       owner_user_id: user.id,
-      ...(tournament_id ? { tournament_id } : {}),
     },
     include: {
       studio_overlays: {
@@ -46,6 +46,23 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
       },
     },
   })
+
+  const effectiveTournamentId = tournament_id ?? userStudio?.tournament_id
+  const [studioEntitlements, tournamentEntitlements] = await Promise.all([
+    getPlanEntitlements(user.id, "studio"),
+    effectiveTournamentId
+      ? getTournamentEntitlements(user.id, effectiveTournamentId)
+      : Promise.resolve(null),
+  ])
+  const overlayLimit = tournamentEntitlements
+    ? Math.min(
+        studioEntitlements.studioOverlays,
+        tournamentEntitlements.tournamentOverlays
+      )
+    : studioEntitlements.studioOverlays
+  const canShowSponsorsAndCasters =
+    studioEntitlements.sponsorsAndCasters ||
+    Boolean(tournamentEntitlements?.sponsorsAndCasters)
 
   // S'il n'en a pas, en créer un automatiquement
   if (!userStudio) {
@@ -65,14 +82,22 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
           primary_color: "#00F0FF",
           secondary_color: "#A855F7",
           font_family: "Inter",
-          show_sponsors: true,
-          show_casters: true,
+          show_sponsors: canShowSponsorsAndCasters,
+          show_casters: canShowSponsorsAndCasters,
         },
       })
 
       // Créer les overlays essentiels avec tokens uniques
-      const overlayTypes = ["SCOREBOARD", "MATCH_INFO", "BRACKET", "STARTING_SOON"]
-      for (const type_code of overlayTypes) {
+      const overlayTypes = await tx.overlay_types.findMany({
+        select: { code: true },
+        orderBy: { code: "asc" },
+        take: overlayLimit,
+      })
+      if (overlayTypes.length === 0) {
+        throw new Error("Aucun type d'overlay n'est configuré.")
+      }
+
+      for (const { code: type_code } of overlayTypes) {
         await tx.studio_overlays.create({
           data: {
             studio_id: createdStudio.id,
@@ -122,6 +147,15 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
       },
     },
   })
+  const studioForClient = {
+    ...userStudio!,
+    studio_overlays: userStudio!.studio_overlays.slice(0, overlayLimit),
+    studio_scenes_config: userStudio!.studio_scenes_config.map((config) => ({
+      ...config,
+      show_sponsors: canShowSponsorsAndCasters && config.show_sponsors,
+      show_casters: canShowSponsorsAndCasters && config.show_casters,
+    })),
+  }
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -141,8 +175,10 @@ export default async function StudioPage({ searchParams }: StudioPageProps) {
       </div>
 
       <StudioClient
-        studio={userStudio!}
+        studio={studioForClient}
         availableTournaments={availableTournaments}
+        overlayLimit={overlayLimit}
+        customizationAllowed={studioEntitlements.customization}
       />
     </div>
   )

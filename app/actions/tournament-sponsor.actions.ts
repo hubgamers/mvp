@@ -2,6 +2,7 @@
 
 import { prisma } from "@/lib/prisma";
 import { createClient } from "@/lib/supabase/server";
+import { getTournamentEntitlements } from "@/lib/plans";
 
 interface SaveTournamentSponsorInput {
     tournament_id: string;
@@ -16,6 +17,14 @@ export async function saveTournamentSponsor(data: SaveTournamentSponsorInput) {
     if (!user) return { success: false, message: "Non authentifié." };
 
     try {
+        const entitlements = await getTournamentEntitlements(user.id, data.tournament_id);
+        if (!entitlements.sponsorsAndCasters) {
+            return {
+                success: false,
+                message: "Les sponsors sont réservés aux offres Organizer Plus et Pro : /dashboard/billing?category=organizer",
+            };
+        }
+
         await prisma.tournament_sponsors.upsert({
             where: {
                 tournament_id_sponsor_id: {

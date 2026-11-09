@@ -24,6 +24,7 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import { StructureManageClient } from "./structure-manage-client"
+import { getClubEntitlements } from "@/lib/plans"
 
 interface StructureDetailPageProps {
   params: Promise<{
@@ -65,6 +66,8 @@ export default async function StructureDetailPage({ params }: StructureDetailPag
 
   const myMembership = club.clubs_members.find((m) => m.user_id === user.id)
   const isAdmin = myMembership?.role_code === "ADMIN"
+  const entitlements = await getClubEntitlements(user.id, club.id)
+  const recruitmentOpen = Boolean(club.recruit_open && entitlements.recruitment)
 
   return (
     <div className="flex flex-1 flex-col gap-6 p-6 lg:p-8 max-w-7xl mx-auto w-full">
@@ -81,7 +84,7 @@ export default async function StructureDetailPage({ params }: StructureDetailPag
               <Badge variant={isAdmin ? "default" : "outline"} className="text-[10px] font-mono uppercase">
                 {myMembership?.club_roles?.label || myMembership?.role_code || "Membre"}
               </Badge>
-              {club.recruit_open && (
+              {recruitmentOpen && (
                 <Badge className="bg-emerald-500/10 text-emerald-400 border-emerald-500/20 text-[10px]">
                   Recrutement actif
                 </Badge>
